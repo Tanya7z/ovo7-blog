@@ -1,6 +1,7 @@
 ---
 import * as interfaces from '../../lib/interfaces.ts'
 import { snakeToKebab } from '../../lib/style-helpers.ts'
+import { isMarginNoteCallout, isSidenoteCallout } from '../../lib/tufte.ts'
 import RichText from './RichText.astro'
 import NotionBlocks from '../NotionBlocks.astro'
 
@@ -10,52 +11,87 @@ export interface Props {
 }
 
 const { block, headings } = Astro.props
+const callout = interfaces.must(block.Callout, 'Callout')
+
+const asSidenote = isSidenoteCallout(block)
+const asMarginNote = isMarginNoteCallout(block)
+const toggleId = asSidenote ? `sn-${block.Id}` : `mn-${block.Id}`
 ---
 
-<div class={`callout ${snakeToKebab(block.Callout.Color)}`}>
-  {
-    block.Callout.Icon && (
-      <div class="icon">
-        {block.Callout.Icon.Type === 'emoji' ? (
-          block.Callout.Icon.Emoji
-        ) : block.Callout.Icon.Type === 'external' ? (
-          <img src={block.Callout.Icon.Url} alt="Icon in a callout block" />
-        ) : null}
+{
+  asSidenote ? (
+    <>
+      <label for={toggleId} class="margin-toggle sidenote-number"></label>
+      <input type="checkbox" id={toggleId} class="margin-toggle" />
+      <span class="sidenote">
+        {callout.RichTexts.map((richText: interfaces.RichText) => (
+          <RichText richText={richText} />
+        ))}
+        {callout.Children && (
+          <NotionBlocks blocks={callout.Children} headings={headings} />
+        )}
+      </span>
+    </>
+  ) : asMarginNote ? (
+    <>
+      <label class="margin-toggle" for={toggleId}>
+        &#8853;
+      </label>
+      <input type="checkbox" id={toggleId} class="margin-toggle" />
+      <span class="marginnote">
+        {callout.Icon && interfaces.isEmojiIcon(callout.Icon) && (
+          <span class="mn-icon">{callout.Icon.Emoji}</span>
+        )}
+        {callout.RichTexts.map((richText: interfaces.RichText) => (
+          <RichText richText={richText} />
+        ))}
+        {callout.Children && (
+          <NotionBlocks blocks={callout.Children} headings={headings} />
+        )}
+      </span>
+    </>
+  ) : (
+    <div class={`callout ${snakeToKebab(callout.Color)}`}>
+      {callout.Icon && (
+        <div class="icon">
+          {interfaces.isEmojiIcon(callout.Icon) ? (
+            callout.Icon.Emoji
+          ) : interfaces.isExternalIcon(callout.Icon) ? (
+            <img src={callout.Icon.Url} alt="Icon in a callout block" />
+          ) : null}
+        </div>
+      )}
+      <div>
+        {callout.RichTexts.map((richText: interfaces.RichText) => (
+          <RichText richText={richText} />
+        ))}
+        {callout.Children && (
+          <NotionBlocks blocks={callout.Children} headings={headings} />
+        )}
       </div>
-    )
-  }
-  <div>
-    {
-      block.Callout.RichTexts.map((richText: interfaces.RichText) => (
-        <RichText richText={richText} />
-      ))
-    }
-    {
-      block.Callout.Children && (
-        <NotionBlocks blocks={block.Callout.Children} headings={headings} />
-      )
-    }
-  </div>
-</div>
+    </div>
+  )
+}
 
 <style>
+  .mn-icon {
+    margin-right: 0.35em;
+  }
   .callout {
     display: flex;
-    margin: 0.4rem auto;
-    padding: 16px 12px;
+    margin: 1.2rem 0;
+    padding: 14px 14px;
     width: 100%;
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 400;
-    line-height: 1.6rem;
-    border-radius: 3px;
-    border-width: 1px;
-    border-style: solid;
-    border-color: transparent;
-    background: rgba(235, 236, 237, 0.6);
+    line-height: 1.6;
+    border-radius: 0;
+    border: 1px solid var(--line);
+    background: var(--soft);
   }
   .callout > div {
     margin: 0;
-    line-height: 1.5rem;
+    line-height: 1.6;
   }
   .callout > div.icon {
     margin-right: 0.7rem;

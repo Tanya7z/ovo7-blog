@@ -1,0 +1,39 @@
+---
+import { getStickers } from '../lib/notion/stickers.ts'
+import Sticker from './Sticker.astro'
+
+export interface Props {
+  collection: string
+  label?: string
+  /**
+   * board  = 成排贴在内容下方（探索页用）
+   * scatter = 散落在版心内外、可压住内容（首页扉页用）
+   */
+  layout?: 'board' | 'scatter'
+}
+
+const { collection, label = '', layout = 'board' } = Astro.props
+const stickers = await getStickers(collection)
+---
+
+{
+  stickers.length > 0 && (
+    <ul
+      class:list={[layout === 'scatter' ? 'sticker-scatter' : 'sticker-board']}
+      aria-label={label || `${collection}贴画`}
+      data-random-layout={layout === 'scatter' ? '' : undefined}
+    >
+      {stickers.map((sticker) => (
+        <Sticker sticker={sticker} />
+      ))}
+    </ul>
+  )
+}
+
+<script>
+  import { initScatterLayout } from '../lib/sticker-layout.ts'
+  import { initTapePeel } from '../lib/sticker-tape.ts'
+
+  initScatterLayout()
+  initTapePeel()
+</script>

@@ -3,33 +3,39 @@ import * as interfaces from '../../lib/interfaces.ts'
 import { snakeToKebab } from '../../lib/style-helpers.ts'
 import RichText from './RichText.astro'
 import NotionBlocks from '../NotionBlocks.astro'
+import Callout from './Callout.astro'
 import '../../styles/notion-color.css'
 
 export interface Props {
   block: interfaces.Block
   headings: interfaces.Block[]
+  trailingNotes?: interfaces.Block[]
 }
 
-const { block, headings } = Astro.props
+const { block, headings, trailingNotes = [] } = Astro.props
+const paragraph = interfaces.must(block.Paragraph, 'Paragraph')
 ---
 
-<p class={snakeToKebab(block.Paragraph.Color)}>
+<p class={snakeToKebab(paragraph.Color)}>
   {
-    block.Paragraph.RichTexts.map((richText: interfaces.RichText) => (
+    paragraph.RichTexts.map((richText: interfaces.RichText) => (
       <RichText richText={richText} />
     ))
   }
   {
-    block.Paragraph.Children && (
-      <NotionBlocks blocks={block.Paragraph.Children} headings={headings} />
+    trailingNotes.map((note) => (
+      <Callout block={note} headings={headings} />
+    ))
+  }
+  {
+    paragraph.Children && (
+      <NotionBlocks blocks={paragraph.Children} headings={headings} />
     )
   }
 </p>
 
 <style>
   p {
-    margin: 0.3rem 0;
-    font-size: 1rem;
     min-height: 1.8rem;
   }
 </style>

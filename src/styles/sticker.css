@@ -1,0 +1,504 @@
+/* 手帐视觉层：拍立得相纸 + 和纸胶带 + 轻微倾斜
+ *
+ * 边界很重要：本文件只被贴画与拼贴组件导入，不进 Layout 全局，
+ * 因此文章正文的 Tufte 排版完全不受影响。
+ *
+ * 胶带写法参考纯 CSS washi tape 教程（Coding Artist / Code it Pretty），
+ * 用 ::before 伪元素做半透明纸条，不引入任何图片素材与 JS。
+ */
+
+:root {
+  --tape: rgba(240, 232, 200, 0.55);
+  --tape-line: rgba(214, 202, 160, 0.35);
+  /* 相纸是实物：深色主题下仍保持浅底深字，不跟 --ink/--paper 翻转 */
+  --photo-paper: #fffdf7;
+  --photo-ink: #222222;
+  --photo-muted: #6a6a68;
+  --photo-line: #d8d4c6;
+  --photo-img-bg: #f1ede0;
+}
+
+/* ===== 拍立得相纸 ===== */
+.polaroid {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  /* figure 的浏览器默认样式带 margin: 1em 40px，会把相纸挤窄、照片跟着变小 */
+  width: 100%;
+  margin: 0;
+  /* 相纸白边；照片的尺寸上限要减掉它，否则照片会顶出纸外 */
+  --frame-pad: 0.6rem;
+  padding: var(--frame-pad) var(--frame-pad) 0.9rem;
+  background: var(--photo-paper);
+  color: var(--photo-ink);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  transform: rotate(var(--rotate, 0deg));
+}
+
+.polaroid > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--photo-img-bg);
+}
+
+.polaroid > figcaption,
+.polaroid > .polaroid-caption {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.5rem;
+  left: 0.6rem;
+  margin: 0;
+  color: var(--photo-muted);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1.4;
+  text-align: center;
+  font-synthesis: none;
+}
+
+/* ===== 贴画：尺寸由图片自身决定 =====
+ *
+ * 封顶值分三步算：
+ * 1. --sticker-fit：按原图长边算出来的「这张图该贴多大」，由组件在构建期写成内联样式
+ * 2. --sticker-max：这个位置最多能放多大，由排布锚点决定；与 fit 取小
+ * 3. --sticker-scale：Notion「缩放倍数」，乘在上一步结果上，才能真正放大缩小
+ * 最后再被 --sticker-room 收住，只防止一张图大到离谱，不负责把贴纸塞回屏幕。
+ *
+ * 相纸宽度取 max-content，即图片与题字里较宽的那个，再被封顶值收住。
+ * 题字进正常文档流，多长都由相纸自己长高，不会溢出到纸外。
+ */
+.sticker {
+  --sticker-max: 10.5rem;
+  --sticker-scale: 1;
+  --sticker-room: 99rem;
+  --sticker-cap: min(
+    calc(min(var(--sticker-max), var(--sticker-fit, 99rem)) * var(--sticker-scale)),
+    var(--sticker-room)
+  );
+}
+
+.sticker .polaroid {
+  width: max-content;
+  max-width: var(--sticker-cap);
+}
+
+.sticker .polaroid > img {
+  width: auto;
+  height: auto;
+  /* 减去左右白边，照片才不会顶出相纸 */
+  max-width: calc(var(--sticker-cap) - 2 * var(--frame-pad));
+  max-height: calc(var(--sticker-cap) - 2 * var(--frame-pad));
+}
+
+.sticker .polaroid > figcaption {
+  position: static;
+  margin-top: 0.55rem;
+  /* 题字比图片长时，让它在相纸内换行而不是把相纸撑成长条 */
+  max-width: calc(var(--sticker-cap) - 2 * var(--frame-pad));
+  /* 字号也随卡片等比，只是留了上下限，小卡片上仍然认得出字 */
+  font-size: clamp(0.72rem, calc(var(--sticker-cap) * 0.095), 1.15rem);
+}
+
+/* ===== 悬停/聚焦提示：这张图是什么时候贴上去的 ===== */
+.sticker-tip {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  width: max-content;
+  max-width: 14rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--line);
+  background: var(--paper, #fffdf7);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  opacity: 0;
+  visibility: hidden;
+  /* 不做反向旋转：提示跟着卡片一起歪，才像贴在同一张纸上 */
+  transform: translateX(-50%);
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  pointer-events: none;
+}
+
+.tippable:hover > .sticker-tip,
+.tippable:focus-within > .sticker-tip,
+.tippable:focus > .sticker-tip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.tippable {
+  cursor: help;
+}
+
+.tippable:focus-visible {
+  outline: 2px solid var(--coral, #c96a4f);
+  outline-offset: 3px;
+}
+
+/* 随机排布本身没有过渡。减少动态偏好时只关掉提示气泡的显隐动画，
+ * 倾斜仍然保留——那是构图，不是运动。
+ */
+@media (prefers-reduced-motion: reduce) {
+  .sticker-tip {
+    transition: none;
+  }
+}
+
+/* ===== 和纸胶带：贴在相纸上沿，倾斜方向与相纸相反 =====
+ *
+ * 抽成变量是为了撕下时的关键帧能在原有角度上继续转，
+ * 不然动画会先把胶带掰正、再飞走，看着很假。
+ */
+.tape {
+  --tape-rotate: calc(var(--rotate, 0deg) * -1.6);
+  position: absolute;
+  z-index: 1;
+  top: -0.75rem;
+  left: 50%;
+  width: 4.5rem;
+  height: 1.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background-color: var(--tape);
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--tape-line) 0 2px,
+    transparent 2px 7px
+  );
+  transform: translateX(-50%) rotate(var(--tape-rotate));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* 可撕的那种：光标提示能动手 */
+button.tape {
+  appearance: none;
+  cursor: pointer;
+}
+
+button.tape:hover {
+  background-color: rgba(240, 232, 200, 0.72);
+}
+
+button.tape:focus-visible {
+  outline: 2px solid var(--coral, #c96a4f);
+  outline-offset: 2px;
+}
+
+/* 撕下：先翘起一角，再打着卷飘走 */
+.tape.is-peeling {
+  animation: tape-peel 0.5s ease-in forwards;
+  pointer-events: none;
+}
+
+@keyframes tape-peel {
+  0% {
+    transform: translateX(-50%) rotate(var(--tape-rotate));
+  }
+  30% {
+    transform: translateX(-50%) translateY(-5px)
+      rotate(calc(var(--tape-rotate) - 14deg)) scaleY(0.84);
+  }
+  100% {
+    transform: translateX(-46%) translateY(52px)
+      rotate(calc(var(--tape-rotate) + 46deg)) scaleY(0.62);
+    opacity: 0;
+  }
+}
+
+/* 没了胶带就挂不住，相纸顺势往下垮一点；--slump 由脚本随机给 */
+.polaroid.is-untaped:not(.is-falling) {
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.3, 1);
+  transform: rotate(calc(var(--rotate, 0deg) + var(--slump, 0deg)))
+    translateY(var(--slump-y, 0px));
+}
+
+/* 掉进物理世界之后，旋转交给引擎，CSS 不再转一次 */
+.polaroid.is-falling {
+  transform: none;
+  transition: none;
+}
+
+/* ===== 贴画板 ===== */
+.sticker-board {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2.4rem 2rem;
+  margin: 3rem 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+/* 成排贴法同样要有物理上限：缩放倍数调大时，
+ * 顶多长到屏宽的四成，不会一张图独占一行。
+ */
+.sticker-board > .sticker {
+  --sticker-room: min(40vw, 14rem);
+}
+
+.sticker {
+  flex: 0 0 auto;
+  /* 宽度交给相纸，相纸再交给图片 */
+  width: auto;
+}
+
+/* 确定性交替倾斜：不用随机数，保证每次构建产物一致。
+ * Notion「角度」字段有值时以内联 --rotate 覆盖这里。
+ */
+.sticker-board > .sticker:nth-child(4n + 1) {
+  --rotate: -2.5deg;
+}
+.sticker-board > .sticker:nth-child(4n + 2) {
+  --rotate: 1.5deg;
+}
+.sticker-board > .sticker:nth-child(4n + 3) {
+  --rotate: -1deg;
+}
+.sticker-board > .sticker:nth-child(4n) {
+  --rotate: 2deg;
+}
+
+/* ===== 散落贴法（仅首页贴画库使用） =====
+ *
+ * 覆盖在版心上的一层贴纸。有脚本时位置由 sticker-layout 写入
+ * --scatter-x / --scatter-y / --rotate / --sticker-z，每次刷新换构图。
+ * 没有脚本时走下面的 nth-child 固定描点，避免贴纸全叠在原点。
+ * 整层 pointer-events: none，只有贴纸本身可交互，空白处不挡下方链接。
+ */
+.sticker-scatter {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.sticker-scatter > .sticker {
+  position: absolute;
+  pointer-events: auto;
+  /* 只封顶，不按视口收窄；探出纸边是故意的 */
+  --sticker-room: 16rem;
+}
+
+/* 浏览器能跑脚本时先藏起来，等排布写完再显示，避免先整齐后散开的闪动 */
+@media (scripting: enabled) {
+  .sticker-scatter:not(.is-laid-out):not(.is-fallback) > .sticker {
+    visibility: hidden;
+  }
+}
+
+.sticker-scatter.is-laid-out > .sticker:nth-child(n) {
+  left: var(--scatter-x);
+  top: var(--scatter-y);
+  right: auto;
+  z-index: var(--sticker-z, 3);
+}
+
+/* 窄屏限量：多出来的贴纸先收起，拉宽窗口后由脚本清掉该类 */
+.sticker-scatter > .sticker.is-mobile-parked {
+  display: none !important;
+}
+
+/* ===== 无脚本兜底：固定描点 ===== */
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 6),
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 8) {
+  --sticker-room: 11rem;
+}
+
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 1),
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 3),
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 5),
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 9),
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n) {
+  right: calc(100% + 1.4rem);
+}
+
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 2),
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 4),
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 7) {
+  left: calc(100% + 1.4rem);
+}
+
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 1) {
+  top: 1%;
+  --sticker-max: 11rem;
+  --rotate: -6deg;
+}
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 2) {
+  top: 13%;
+  --sticker-max: 12rem;
+  --rotate: 5deg;
+}
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 3) {
+  top: 30%;
+  --sticker-max: 10rem;
+  --rotate: 7deg;
+}
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 4) {
+  top: 45%;
+  --sticker-max: 11.5rem;
+  --rotate: -5deg;
+}
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 5) {
+  top: 62%;
+  --sticker-max: 9.5rem;
+  --rotate: 4deg;
+}
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 6) {
+  top: 57%;
+  right: -3rem;
+  --sticker-max: 9rem;
+  --rotate: -8deg;
+}
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 7) {
+  top: 77%;
+  --sticker-max: 11rem;
+  --rotate: -4deg;
+}
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 8) {
+  top: 4%;
+  right: 0.5rem;
+  --sticker-max: 8rem;
+  --rotate: 9deg;
+}
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 9) {
+  top: 85%;
+  --sticker-max: 10.5rem;
+  --rotate: 6deg;
+}
+.sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n) {
+  top: 40%;
+  --sticker-max: 9rem;
+  --rotate: -3deg;
+}
+
+/* ===== 平板 / 手机：仍叠在版心上散落，只是尺寸收小 =====
+ *
+ * 版心两侧已经放不下「纸边外」贴纸，但也不该整堆掉到正文下面。
+ * 继续 absolute 覆盖；脚本会把候选点收进版心内/边角。
+ * 无脚本时用版心内的固定描点兜底。
+ */
+@media (max-width: 920px) {
+  .sticker-scatter > .sticker:nth-child(n) {
+    --sticker-max: 8.5rem;
+    --sticker-room: min(34vw, 8.2rem);
+  }
+
+  /* 无脚本时也限量，避免兜底描点把版心贴满 */
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(n + 5) {
+    display: none;
+  }
+
+  /* 覆盖桌面「纸边外」兜底，改贴在版心四角与侧缘 */
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 1),
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 3),
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 5),
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 9),
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n) {
+    right: auto;
+    left: -0.4rem;
+  }
+
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 2),
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 4),
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 7) {
+    left: auto;
+    right: -0.4rem;
+  }
+
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 6),
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 8) {
+    right: 0.2rem;
+    left: auto;
+  }
+
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 1) {
+    top: 2%;
+    --rotate: -4deg;
+  }
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 2) {
+    top: 10%;
+    --rotate: 3.5deg;
+  }
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 3) {
+    top: 28%;
+    --rotate: 4deg;
+  }
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 4) {
+    top: 42%;
+    --rotate: -3deg;
+  }
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 5) {
+    top: 58%;
+    --rotate: 2.5deg;
+  }
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 6) {
+    top: 68%;
+    --rotate: -5deg;
+  }
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 7) {
+    top: 78%;
+    --rotate: -2.5deg;
+  }
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 8) {
+    top: 4%;
+    --rotate: 5deg;
+  }
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n + 9) {
+    top: 88%;
+    --rotate: 3deg;
+  }
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(10n) {
+    top: 36%;
+    --rotate: -2deg;
+  }
+}
+
+/* ===== 窄屏收敛：成排贴法的倾斜压到 ±1deg，投影减弱 ===== */
+@media (max-width: 760px) {
+  .sticker-board {
+    gap: 1.8rem 1.4rem;
+  }
+
+  .sticker {
+    --sticker-max: 8.5rem;
+  }
+
+  .sticker-board > .sticker:nth-child(4n + 1),
+  .sticker-board > .sticker:nth-child(4n + 3) {
+    --rotate: -1deg;
+  }
+  .sticker-board > .sticker:nth-child(4n + 2),
+  .sticker-board > .sticker:nth-child(4n) {
+    --rotate: 1deg;
+  }
+
+  .polaroid {
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* ===== 小屏手机：散落贴纸再收一档 ===== */
+@media (max-width: 560px) {
+  .sticker-scatter > .sticker:nth-child(n) {
+    --sticker-max: 7.2rem;
+    --sticker-room: min(32vw, 7rem);
+  }
+
+  .sticker-scatter:not(.is-laid-out) > .sticker:nth-child(n + 4) {
+    display: none;
+  }
+}

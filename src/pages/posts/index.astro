@@ -1,0 +1,101 @@
+---
+import { getAllPosts } from '../../lib/notion/client.ts'
+import { getPostLink } from '../../lib/blog-helpers.ts'
+import type { Post } from '../../lib/interfaces.ts'
+import Layout from '../../layouts/Layout.astro'
+import NoContents from '../../components/NoContents.astro'
+
+const posts = await getAllPosts()
+
+// 按「年 + 月」分组归档；缺日期的条目归入「未标注日期」
+interface ArchiveGroup {
+  key: string
+  label: string
+  posts: Post[]
+}
+
+const groupMap = new Map<string, ArchiveGroup>()
+for (const post of posts) {
+  let key = '0000-00'
+  let label = '未标注日期'
+  if (post.Date) {
+    const dt = new Date(post.Date)
+    const year = dt.getFullYear()
+    const month = dt.getMonth() + 1
+    key = `${year}-${('00' + month).slice(-2)}`
+    label = `${year} 年 ${month} 月`
+  }
+  if (!groupMap.has(key)) {
+    groupMap.set(key, { key, label, posts: [] })
+  }
+  groupMap.get(key)!.posts.push(post)
+}
+
+const groups = Array.from(groupMap.values()).sort((a, b) =>
+  a.key < b.key ? 1 : a.key > b.key ? -1 : 0
+)
+
+const dayOf = (date: string) => ('00' + new Date(date).getDate()).slice(-2)
+---
+
+<Layout title="文章" path="/posts">
+  <div slot="main">
+    <h1 class="post-title">文章</h1>
+
+    {
+      posts.length === 0 ? (
+        <NoContents contents={posts} />
+      ) : (
+        groups.map((group) => (
+          <section class="archive-group">
+            <h2 class="archive-heading">{group.label}</h2>
+            <ul class="archive-list">
+              {group.posts.map((post) => (
+                <li class="archive-item">
+                  <time class="archive-day numeral">
+                    {post.Date ? dayOf(post.Date) : '·'}
+                  </time>
+                  <a href={getPostLink(post.Slug)}>{post.Title}</a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      )
+    }
+  </div>
+</Layout>
+
+<style>
+  .archive-group {
+    margin-top: 2.4rem;
+  }
+
+  .archive-heading {
+    margin-bottom: 0.6rem;
+    color: var(--muted);
+    font-size: 1.4rem;
+  }
+
+  .archive-list {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .archive-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.9rem;
+    padding: 0.35rem 0;
+    line-height: 1.5;
+  }
+
+  .archive-day {
+    flex: 0 0 1.8rem;
+    color: var(--muted);
+    font-size: 1.1rem;
+    text-align: right;
+  }
+</style>

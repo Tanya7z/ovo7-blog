@@ -1,139 +1,294 @@
 ---
-import { NUMBER_OF_POSTS_PER_PAGE } from '../server-constants.ts'
-import {
-  getPosts,
-  getAllTags,
-  getNumberOfPages,
-} from '../lib/notion/client.ts'
+import { Image } from 'astro:assets'
 import Layout from '../layouts/Layout.astro'
-import NoContents from '../components/NoContents.astro'
-import PostDate from '../components/PostDate.astro'
-import PostTags from '../components/PostTags.astro'
-import PostTitle from '../components/PostTitle.astro'
-import PostFeaturedImage from '../components/PostFeaturedImage.astro'
-import PostExcerpt from '../components/PostExcerpt.astro'
-import ReadMoreLink from '../components/ReadMoreLink.astro'
-import Pagination from '../components/Pagination.astro'
-import BlogPostsLink from '../components/BlogPostsLink.astro'
-import BlogTagsLink from '../components/BlogTagsLink.astro'
-import styles from '../styles/blog.module.css'
+import { Icon } from 'astro-icon/components'
+import { getNavLink, getPostLink } from '../lib/blog-helpers.ts'
+import { getPosts } from '../lib/notion/client.ts'
+import StickerBoard from '../components/StickerBoard.astro'
+import cover from '../assets/cover.jpg'
+import logo from '../assets/logo.png'
 
-const [posts, tags, numberOfPages] = await Promise.all([
-  getPosts(NUMBER_OF_POSTS_PER_PAGE),
-  getAllTags(),
-  getNumberOfPages(),
-])
+const recentPosts = await getPosts(6)
 ---
 
-<Layout>
-  <div slot="main" class={styles.main}>
-    <header class="page-intro">
-      <p class="eyebrow">Notebook / 技术笔记</p>
-      <h1>把遇见的问题，认真记下来。</h1>
-      <p>代码、工具与偶尔冒出来的想法。最近共有 {posts.length} 篇文章。</p>
-    </header>
+<Layout bare path="/">
+  <div slot="main" class="notebook">
+    <div class="cover">
+      <Image
+        src={cover}
+        alt=""
+        widths={[800, 1200, 1600, 2400]}
+        sizes="100vw"
+        loading="eager"
+        fetchpriority="high"
+      />
+    </div>
 
-    {
-      posts.length === 0 ? (
-        <NoContents contents={posts} />
-      ) : (
-        posts.map((post) => (
-          <article class={styles.post} key={post.Slug}>
-            <div class="post-meta">
-              <PostDate post={post} />
-              <PostTags post={post} />
-            </div>
-            <PostTitle post={post} />
-            <PostFeaturedImage post={post} />
-            <PostExcerpt post={post} />
-            <ReadMoreLink post={post} />
-          </article>
-        ))
-      )
-    }
+    <div class="sheet">
+      <Image
+        class="page-icon"
+        src={logo}
+        alt=""
+        width={96}
+        height={96}
+        densities={[1, 2]}
+      />
+      <h1>七罪的手账本。</h1>
+      <p class="motto">La vida no tiene precio.</p>
 
-    <footer>
-      <Pagination currentPage={1} numberOfPages={numberOfPages} />
-    </footer>
-  </div>
+      <div class="pinboard">
+        <section class="card card-posts" aria-label="最近更新">
+          <h2>文章</h2>
+          {
+            recentPosts.length > 0 ? (
+              <ul>
+                {recentPosts.map((post) => (
+                  <li>
+                    <a href={getPostLink(post.Slug)}>{post.Title}</a>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p class="empty">还没有写下的东西。</p>
+            )
+          }
+          <a class="more" href={getNavLink('/posts')}>全部文章 →</a>
+        </section>
 
-  <div slot="aside" class={styles.aside}>
-    <section class="profile-note">
-      <span aria-hidden="true">✦</span>
-      <p>七罪 / Tanya7z</p>
-      <a href="mailto:hi@ovo7.cc">hi@ovo7.cc</a>
-    </section>
-    <BlogPostsLink heading="最近更新" posts={posts.slice(0, 5)} />
-    <div id="categories">
-      <BlogTagsLink heading="文章分类" tags={tags} />
+        <a class="card card-explore" href={getNavLink('/explore')}>
+          <h2>探索</h2>
+          <p>在看的书、动画与电影，附一句短评。</p>
+          <span class="more">翻开清单 →</span>
+        </a>
+      </div>
+
+      <nav class="entries" aria-label="相关入口">
+        <a href={getNavLink('/posts')}>
+          <Icon name="ph:article-light" />
+          仓库
+        </a>
+        <a href="https://github.com/Tanya7z" target="_blank" rel="noreferrer">
+          <Icon name="ph:github-logo-light" />
+          GitHub
+        </a>
+        <a href="mailto:hi@ovo7.cc">
+          <Icon name="ph:envelope-simple-light" />
+          hi@ovo7.cc
+        </a>
+        <a
+          href="https://space.bilibili.com/455301292"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Icon name="ph:television" />
+          Bilibili
+        </a>
+      </nav>
+
+      <StickerBoard collection="首页" label="首页贴画" layout="scatter" />
     </div>
   </div>
 </Layout>
 
 <style>
-  .page-intro {
-    margin-bottom: 34px;
-    border-bottom: 1px solid var(--line);
-    padding-bottom: 30px;
+  .notebook {
+    min-height: 100vh;
+    /* 贴纸可以探出纸边甚至被窗口裁掉一角，但不能把整页撑出横向滚动条 */
+    overflow-x: clip;
+    /* 封面高度 */
+    --cover-height: min(38vh, 280px);
+    /* 封面焦点 */
+    --cover-position: center 25%;
   }
 
-  .page-intro .eyebrow {
-    margin: 0 0 10px;
-    color: var(--coral);
-    font-size: 12px;
-    font-weight: 800;
-    text-transform: uppercase;
+  .cover {
+    width: 100%;
+    height: var(--cover-height);
+    overflow: hidden;
+    background: #3a2a22;
   }
 
-  .page-intro h1 {
-    max-width: 620px;
-    margin: 0;
-    font-size: 32px;
+  .cover :global(picture),
+  .cover :global(img) {
+    display: block;
+    width: 100%;
+    height: 100%;
   }
 
-  .page-intro p:last-child {
-    max-width: 620px;
-    margin: 12px 0 0;
+  .cover :global(img) {
+    object-fit: cover;
+    object-position: var(--cover-position);
+  }
+
+  .sheet {
+    /* 首页散落贴画以此为定位参照 */
+    position: relative;
+    width: min(100%, 720px);
+    margin: 0 auto;
+    padding: 0 28px 96px;
+  }
+
+  .sheet :global(.page-icon) {
+    display: block;
+    width: 96px;
+    height: 96px;
+    margin-top: -48px;
+    object-fit: contain;
+    background: transparent;
+  }
+
+  h1 {
+    margin: 18px 0 0;
+    font-size: clamp(2rem, 4vw, 2.55rem);
+    letter-spacing: 0.01em;
+  }
+
+  .motto {
+    margin: 8px 0 0;
     color: var(--muted);
-    font-size: 15px;
+    font-style: normal;
+    font-size: 1rem;
   }
 
-  .post-meta {
+  .entries {
     display: flex;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    margin-top: 22px;
+  }
+
+  .entries a {
+    display: inline-flex;
     align-items: center;
-    gap: 12px;
-  }
-
-  .profile-note {
-    margin-bottom: 28px;
-    border-bottom: 1px solid var(--line);
-    padding: 0 4px 22px;
-  }
-
-  .profile-note > span {
-    color: var(--coral);
-    font-size: 22px;
-  }
-
-  .profile-note p {
-    margin: 6px 0 2px;
-    font-weight: 750;
-  }
-
-  .profile-note a {
+    gap: 8px;
+    padding: 6px 10px;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 14px;
+    text-decoration: none;
+    border-radius: 4px;
+  }
+
+  .entries a:hover {
+    color: var(--ink);
+    background: var(--soft);
+    text-decoration: none;
+  }
+
+  .entries img,
+  .entries svg {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+  }
+
+  .entries img {
+    object-fit: contain;
+  }
+
+  /* ===== 扉页拼贴板 ===== */
+  .pinboard {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    align-items: start;
+    gap: 1.6rem;
+    margin-top: 2.6rem;
+  }
+
+  .card {
+    position: relative;
+    display: block;
+    border: 1px solid var(--line);
+    padding: 1.2rem 1.3rem 1.4rem;
+    background: var(--paper);
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .card h2 {
+    margin: 0 0 0.8rem;
+    color: var(--muted);
+    font-family: var(--font-display);
+    font-style: normal;
+    font-size: 1.4rem;
+  }
+
+  /* 纸堆叠：两层错开并微微歪斜的伪元素垫在卡片下面 */
+  .card-posts::before,
+  .card-posts::after {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  }
+
+  .card-posts::before {
+    transform: translate(5px, 5px) rotate(0.5deg);
+  }
+
+  .card-posts::after {
+    transform: translate(10px, 10px) rotate(1.1deg);
+  }
+
+  .card-posts ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .card-posts li {
+    padding: 0.3rem 0;
+    line-height: 1.5;
+  }
+
+  .card-posts .empty {
+    margin: 0;
+    color: var(--muted);
+  }
+
+  .card-explore p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 1.15rem;
+    line-height: 1.6;
+  }
+
+  .card-explore:hover {
+    background: var(--soft);
+  }
+
+  .more {
+    display: inline-block;
+    margin-top: 0.9rem;
+    color: var(--muted);
+    font-size: 1.05rem;
+    text-decoration: none;
+  }
+
+  .more:hover {
+    color: var(--ink);
   }
 
   @media (max-width: 640px) {
-    .page-intro h1 {
-      font-size: 26px;
+    .pinboard {
+      grid-template-columns: 1fr;
+      gap: 2rem;
     }
 
-    .post-meta {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 2px;
+    .cover {
+      height: 180px;
+    }
+
+    .sheet {
+      padding: 0 20px 72px;
+    }
+
+    .sheet :global(.page-icon) {
+      width: 78px;
+      height: 78px;
+      margin-top: -39px;
     }
   }
 </style>

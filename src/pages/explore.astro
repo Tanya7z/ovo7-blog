@@ -1,0 +1,292 @@
+---
+import Layout from '../layouts/Layout.astro'
+import StickerBoard from '../components/StickerBoard.astro'
+import Tape from '../components/Tape.astro'
+import { getExploreGroups } from '../lib/notion/explore.ts'
+import { filePath, getStaticFilePath } from '../lib/blog-helpers.ts'
+import type { FileObject } from '../lib/interfaces.ts'
+import '../styles/sticker.css'
+
+const groups = await getExploreGroups()
+
+// 三种来源：站内静态文件（mock）、Notion 托管文件（构建期已落地）、外链图片。
+function resolveCover(cover: FileObject | null): string {
+  if (!cover?.Url) {
+    return ''
+  }
+  if (cover.Url.startsWith('/')) {
+    return getStaticFilePath(cover.Url)
+  }
+  if (cover.Type !== 'file' || import.meta.env.DEV) {
+    return cover.Url
+  }
+  try {
+    return filePath(new URL(cover.Url))
+  } catch {
+    return cover.Url
+  }
+}
+---
+
+<Layout
+  title="探索"
+  description="在看的书、动画与电影，附状态与评分。"
+  path="/explore"
+>
+  <div slot="main">
+    <h1>探索</h1>
+    <p class="lede">
+      你好，下方的进度条是评分哦(≧∇≦)ﾉ
+    </p>
+
+    {
+      groups.length === 0 && (
+        <p class="empty">清单还空着，等我先看几部片子。</p>
+      )
+    }
+
+    {
+      groups.length > 1 && (
+        <nav class="tabs" aria-label="按类型跳转">
+          {groups.map((group) => (
+            <a href={`#type-${encodeURIComponent(group.type)}`}>
+              {group.type}
+              <span class="count">{group.entries.length}</span>
+            </a>
+          ))}
+        </nav>
+      )
+    }
+
+    {
+      groups.map((group) => (
+        <section class="group" id={`type-${group.type}`}>
+          <h2>{group.type}</h2>
+          <ul class="collage">
+            {group.entries.map((entry) => {
+              const cover = resolveCover(entry.Cover)
+              return (
+                <li class="cell">
+                  <figure class="polaroid">
+                    <Tape />
+                    {cover ? (
+                      <img
+                        src={cover}
+                        alt={entry.Name}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <div class="blank" aria-hidden="true" />
+                    )}
+                    <figcaption>
+                      <span class="name">{entry.Name}</span>
+                      {entry.Author && <span class="meta">{entry.Author}</span>}
+                      {entry.Place && <span class="meta">{entry.Place}</span>}
+                      {entry.Status && (
+                        <span class="meta status">{entry.Status}</span>
+                      )}
+                      {entry.Score !== null && (
+                        <span
+                          class="score"
+                          role="img"
+                          aria-label={`评分 ${entry.Score} / 10`}
+                        >
+                          <span
+                            class="score-fill"
+                            style={`width: ${entry.Score * 10}%`}
+                          />
+                        </span>
+                      )}
+                    </figcaption>
+                  </figure>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ))
+    }
+
+    <StickerBoard collection="探索" label="探索贴画" />
+  </div>
+</Layout>
+
+<style>
+  .lede {
+    width: var(--text-width);
+    color: var(--muted);
+  }
+
+  .empty {
+    width: var(--text-width);
+    color: var(--muted);
+  }
+
+  /* 类目索引：像贴在本子边上的一排纸标签 */
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 0.7rem;
+    margin-top: 2rem;
+  }
+
+  .tabs a {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    padding: 0.25rem 0.8rem;
+    /* 用主题令牌，勿用贴纸的 --photo-paper（深色下仍是浅底） */
+    background: var(--soft);
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    text-decoration: none;
+    font-synthesis: none;
+  }
+
+  .tabs a:nth-child(2n) {
+    transform: rotate(-0.8deg);
+  }
+
+  .tabs a:nth-child(2n + 1) {
+    transform: rotate(0.6deg);
+  }
+
+  .tabs a:hover {
+    background: var(--paper);
+  }
+
+  .tabs .count {
+    color: var(--muted);
+    font-family: var(--font-numeral);
+    font-size: 0.9rem;
+  }
+
+  .group {
+    margin-top: 3.4rem;
+    /* 锚点跳转时给站点 header 留出余量 */
+    scroll-margin-top: 1.5rem;
+  }
+
+  .group h2 {
+    margin-bottom: 1.8rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.6rem;
+  }
+
+  /* 复合网格（6/5 叠加得到的 10 条轨道），参考 CSS-IRL 的 scrapbook 布局。
+   * 卡片跨不同轨道组，宽度天然不等，避免整齐排排坐的呆板感。
+   */
+  .collage {
+    --overlap: 6rem;
+    --verticalPadding: 2rem;
+    display: grid;
+    grid-template-columns: 5fr 1fr 4fr 2fr 3fr 3fr 2fr 4fr 1fr 5fr;
+    row-gap: var(--verticalPadding);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .cell {
+    padding: 0 0.9rem;
+  }
+
+  .cell:nth-child(3n + 1) {
+    grid-column: 1 / 5;
+    --rotate: -1.5deg;
+  }
+
+  .cell:nth-child(3n + 2) {
+    grid-column: 5 / 8;
+    margin-top: var(--overlap);
+    --rotate: 1.2deg;
+  }
+
+  .cell:nth-child(3n + 3) {
+    grid-column: 8 / 11;
+    margin-top: calc(var(--overlap) * -0.5);
+    --rotate: -0.8deg;
+  }
+
+  /* 强制统一画幅：海报竖、剧照横交替，缺封面时留一块空白相纸 */
+  .cell :global(img),
+  .blank {
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+  }
+
+  .cell:nth-child(2n) :global(img),
+  .cell:nth-child(2n) .blank {
+    aspect-ratio: 4 / 3;
+  }
+
+  .blank {
+    width: 100%;
+    background: repeating-linear-gradient(
+      45deg,
+      #f4f0e4 0 6px,
+      #efeade 6px 12px
+    );
+  }
+
+  /* 相纸底边比贴画更高，要塞下名称、状态与评分 */
+  .cell :global(.polaroid) {
+    padding-bottom: 5rem;
+  }
+
+  figcaption {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  .name {
+    color: var(--photo-ink);
+    font-size: 1.05rem;
+    line-height: 1.3;
+    text-align: center;
+  }
+
+  .meta {
+    color: var(--photo-muted);
+    font-size: 0.92rem;
+    line-height: 1.3;
+  }
+
+  .score {
+    display: block;
+    width: 60%;
+    height: 3px;
+    margin-top: 0.25rem;
+    background: var(--photo-line);
+  }
+
+  .score-fill {
+    display: block;
+    height: 100%;
+    background: var(--photo-muted);
+  }
+
+  /* 窄屏：取消复合网格与重叠，退回等宽两列 */
+  @media (max-width: 760px) {
+    .lede,
+    .empty {
+      width: 100%;
+    }
+
+    .collage {
+      grid-template-columns: 1fr;
+      row-gap: 2.4rem;
+    }
+
+    .cell[class] {
+      grid-column: auto;
+      margin-top: 0;
+    }
+  }
+</style>

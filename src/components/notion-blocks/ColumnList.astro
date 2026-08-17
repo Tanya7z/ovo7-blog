@@ -8,11 +8,12 @@ export interface Props {
 }
 
 const { block, headings } = Astro.props
+const columnList = interfaces.must(block.ColumnList, 'ColumnList')
 ---
 
 <div class="column-list">
   {
-    block.ColumnList.Columns.map((column: interfaces.Column) => (
+    columnList.Columns.map((column: interfaces.Column) => (
       <div>
         <NotionBlocks blocks={column.Children} headings={headings} />
       </div>
@@ -21,17 +22,17 @@ const { block, headings } = Astro.props
 </div>
 
 <style>
+  /* 不在这里定宽：顶层分栏的宽度由 tufte.css 统一放行到正文栏之外 */
   .column-list {
     display: flex;
-    width: 100%;
-    margin: 1rem auto;
-    gap: 0 1rem;
+    margin: 1.4rem 0;
+    gap: 0 1.4rem;
   }
   .column-list > div {
     flex: 1 1 180px;
-    width: 180px;
+    min-width: 0;
   }
-  @media (max-width: 640px) {
+  @media (max-width: 760px) {
     .column-list {
       display: block;
     }

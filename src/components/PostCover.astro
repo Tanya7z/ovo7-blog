@@ -1,0 +1,17 @@
+---
+import type { Post } from '../lib/interfaces.ts'
+import { filePath } from '../lib/blog-helpers.ts'
+
+export interface Props {
+  post: Post
+}
+
+const { post } = Astro.props
+const source = post.Cover?.Url ? post.Cover : post.FeaturedImage
+let image = ''
+if (source?.Url) {
+  image = import.meta.env.DEV ? source.Url : filePath(new URL(source.Url))
+}
+---
+
+{image && <img src={image} alt="" />}

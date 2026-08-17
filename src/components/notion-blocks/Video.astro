@@ -1,6 +1,7 @@
 ---
 import * as interfaces from '../../lib/interfaces.ts'
 import { isYouTubeURL, parseYouTubeVideoId } from '../../lib/blog-helpers.ts'
+import { parseFigureCaption } from '../../lib/tufte.ts'
 import Caption from './Caption.astro'
 
 export interface Props {
@@ -8,31 +9,73 @@ export interface Props {
 }
 
 const { block } = Astro.props
+const videoBlock = interfaces.must(block.Video, 'Video')
+const { layout, displayTexts } = parseFigureCaption(videoBlock.Caption)
+const toggleId = `mn-vid-${block.Id}`
 
-let url: URL
+let url: URL | undefined
 try {
-  url = new URL(block.Video.External?.Url)
+  const raw = videoBlock.External?.Url
+  if (raw) url = new URL(raw)
 } catch (err) {
   console.log(err)
 }
+
+const youtubeId = url && isYouTubeURL(url) ? parseYouTubeVideoId(url) : ''
 ---
 
-<div class="video">
-  <div>
-    {
-      isYouTubeURL(url) && (
-        <iframe
-          src={`https://www.youtube.com/embed/${parseYouTubeVideoId(url)}`}
-          title="YouTube video player"
-          frameborder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowfullscreen
-        />
-      )
-    }
-  </div>
-  <Caption richTexts={block.Video.Caption} />
-</div>
+{
+  layout === 'margin' ? (
+    <>
+      <label class="margin-toggle" for={toggleId}>
+        &#8853;
+      </label>
+      <input type="checkbox" id={toggleId} class="margin-toggle" />
+      <span class="marginnote">
+        {youtubeId && (
+          <iframe
+            src={`https://www.youtube.com/embed/${youtubeId}`}
+            title="YouTube video player"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+          />
+        )}
+        <Caption richTexts={displayTexts} layout="margin" />
+      </span>
+    </>
+  ) : layout === 'fullwidth' ? (
+    <figure class="fullwidth">
+      <div class="iframe-wrapper">
+        {youtubeId && (
+          <iframe
+            src={`https://www.youtube.com/embed/${youtubeId}`}
+            title="YouTube video player"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+          />
+        )}
+      </div>
+      <Caption richTexts={displayTexts} layout="fullwidth" />
+    </figure>
+  ) : (
+    <div class="video">
+      <div>
+        {youtubeId && (
+          <iframe
+            src={`https://www.youtube.com/embed/${youtubeId}`}
+            title="YouTube video player"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+          />
+        )}
+      </div>
+      <Caption richTexts={displayTexts} layout="column" />
+    </div>
+  )
+}
 
 <style>
   .video div:first-child {
@@ -41,6 +84,12 @@ try {
   .video div:first-child iframe {
     width: 100%;
     height: 340px;
+  }
+  .marginnote iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    border: 0;
   }
   @media (max-width: 640px) {
     .video div:first-child iframe {

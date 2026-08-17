@@ -7,11 +7,46 @@ import type {
   RichText,
   Column,
 } from './interfaces'
+import { resolveNotionFilename } from './notion/media-file'
 import { pathJoin } from './utils'
 
 export const filePath = (url: URL): string => {
-  const [dir, filename] = url.pathname.split('/').slice(-2)
+  const [dir, rawName] = url.pathname.split('/').slice(-2)
+  const filename = resolveNotionFilename(dir, decodeURIComponent(rawName))
   return pathJoin(BASE_PATH, `/notion/${dir}/${filename}`)
+}
+
+const EXCERPT_MAX_PARAGRAPHS = 2
+
+function _plainTextFromRichTexts(richTexts: RichText[]): string {
+  return richTexts
+    .map((richText) => richText.PlainText || '')
+    .join('')
+    .trim()
+}
+
+/** 从正文取出最多两段完整段落，不截断、不加省略号。 */
+export const extractExcerptParagraphs = (
+  blocks: Block[],
+  max = EXCERPT_MAX_PARAGRAPHS
+): string[] => {
+  const paragraphs: string[] = []
+
+  for (const block of blocks) {
+    if (paragraphs.length >= max) {
+      break
+    }
+    if (block.Type !== 'paragraph' || !block.Paragraph) {
+      continue
+    }
+    const text = _plainTextFromRichTexts(block.Paragraph.RichTexts)
+    if (!text) {
+      continue
+    }
+    paragraphs.push(text)
+  }
+
+  return paragraphs
 }
 
 export const extractTargetBlocks = (
@@ -139,7 +174,7 @@ export const getTagLink = (tag: string) => {
 
 export const getPageLink = (page: number, tag: string) => {
   if (page === 1) {
-    return tag ? getTagLink(tag) : pathJoin(BASE_PATH, '/')
+    return tag ? getTagLink(tag) : pathJoin(BASE_PATH, '/posts')
   }
   return tag
     ? pathJoin(

@@ -1,45 +1,47 @@
 ---
+import { ClientRouter } from 'astro:transitions'
+import { Image } from 'astro:assets'
 import {
   ENABLE_LIGHTBOX,
   PUBLIC_GA_TRACKING_ID,
   SITE_LANGUAGE,
 } from '../server-constants.ts'
 import { getDatabase } from '../lib/notion/client.ts'
-import { getNavLink, getStaticFilePath, filePath } from '../lib/blog-helpers.ts'
+import { getNavLink, getStaticFilePath } from '../lib/blog-helpers.ts'
+import '../styles/tufte.css'
 import '../styles/syntax-coloring.css'
 import GoogleAnalytics from '../components/GoogleAnalytics.astro'
 import SearchModal from '../components/SearchModal.astro'
-import SearchButton from '../components/SearchButton.astro'
+import NavTransition from '../components/NavTransition.astro'
+import logo from '../assets/logo.png'
 
 export interface Props {
   title?: string
   description?: string
   path?: string
   ogImage?: string
+  bare?: boolean
+  /** 有真实封面图时才渲染顶栏占位；勿依赖 slots.has（条件 slot 会误报） */
+  showCover?: boolean
 }
 
-const { title = '', description = '', path = '/', ogImage = '' } = Astro.props
+const {
+  title = '',
+  description = '',
+  path = '/',
+  ogImage = '',
+  bare = false,
+  showCover = false,
+} = Astro.props
+const hasCover = showCover
 const database = await getDatabase()
 const siteTitle = title ? `${title} · ${database.Title}` : database.Title
 const siteDescription = description || database.Description
 const siteURL = new URL(getNavLink(path), Astro.site).toString()
 const siteOGImage = new URL(
-  getStaticFilePath('/default-og-image.png'),
+  getStaticFilePath('/logo.png'),
   Astro.site
 ).toString()
-
-let coverImageURL = ''
-if (database.Cover) {
-  if (database.Cover.Type === 'external') {
-    coverImageURL = database.Cover.Url
-  } else if (database.Cover.Type === 'file') {
-    try {
-      coverImageURL = filePath(new URL(database.Cover.Url))
-    } catch {
-      console.log('Invalid DB cover image URL: ', database.Cover.Url)
-    }
-  }
-}
 ---
 
 <!doctype html>
@@ -49,11 +51,26 @@ if (database.Cover) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="max-image-preview:large" />
     <meta name="generator" content={Astro.generator} />
-    <meta name="theme-color" content="#f7f8f6" />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="#fffff8"
+    />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content="#151515"
+    />
     <title>{siteTitle}</title>
     <meta name="description" content={siteDescription} />
     <link rel="canonical" href={siteURL} />
-    <link rel="alternate" type="application/rss+xml" title={database.Title} href={getNavLink('/feed')} />
+    <link rel="icon" type="image/png" href={getStaticFilePath('/favicon.png')} />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={database.Title}
+      href={getNavLink('/feed')}
+    />
     <meta property="og:type" content={title ? 'article' : 'website'} />
     <meta property="og:url" content={siteURL} />
     <meta property="og:title" content={siteTitle} />
@@ -66,124 +83,96 @@ if (database.Cover) {
     <meta name="twitter:image" content={ogImage || siteOGImage} />
     <link
       rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@chinese-fonts/zqfs@3.0.0/dist/ZhuqueFangsong-Regular/result.css"
+    />
+    <link
+      rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css"
       integrity="sha384-vKruj+a13U8yHIkAyGgK1J3ArTLzrFGBbBc0tDp4ad/EyewESeXE/Iv67Aj8gKZ0"
       crossorigin="anonymous"
     />
+    <ClientRouter />
   </head>
   <body>
     <GoogleAnalytics trackingId={PUBLIC_GA_TRACKING_ID} />
     <a class="skip-link" href="#main-content">跳到正文</a>
 
-    <header class="site-header">
-      <div class="header-inner">
-        <a class="brand" href={getNavLink('/')} aria-label={`${database.Title}首页`}>
-          <span class="brand-mark" aria-hidden="true">7</span>
-          <span class="brand-copy">
-            <strong>{database.Title}</strong>
-            <small>{database.Description}</small>
-          </span>
-        </a>
+    {
+      !bare && (
+        <header class="site-header">
+          <div class="header-inner">
+            <div class="header-bar">
+              <a class="brand" href={getNavLink('/')}>
+                <Image
+                  class="brand-logo"
+                  src={logo}
+                  alt=""
+                  width={36}
+                  height={36}
+                  densities={[1, 2]}
+                />
+                <span class="brand-title">{database.Title}</span>
+              </a>
+              <nav class="site-nav" aria-label="主导航">
+                <a href={getNavLink('/')}>首页</a>
+                <a href={getNavLink('/posts')}>文章</a>
+                <a href={getNavLink('/explore')}>探索</a>
+                <a class="search-button open-search-modal">检索</a>
+              </nav>
+            </div>
+          </div>
+        </header>
+      )
+    }
 
-        <nav class="site-nav" aria-label="主导航">
-          <a href={getNavLink('/')}>文章</a>
-          <a href={getNavLink('/#categories')}>分类</a>
-          <a href={getNavLink('/feed')}>RSS</a>
-          <a href="https://ovo7.cc" target="_blank" rel="noreferrer">主站</a>
-          <SearchButton />
-        </nav>
-      </div>
-    </header>
-
-    {coverImageURL && (
-      <div class="site-cover">
-        <img src={coverImageURL} alt="" loading="eager" />
-      </div>
-    )}
-
-    <div class="page-shell">
-      <main id="main-content"><slot name="main" /></main>
-      <aside aria-label="博客导航">
-        <div class="aside-inner"><slot name="aside" /></div>
-      </aside>
-    </div>
+    {
+      bare ? (
+        <main id="main-content" class="bare-main" transition:animate="fade">
+          <slot name="main" />
+        </main>
+      ) : (
+        <>
+          {hasCover && (
+            <div class="page-cover" transition:animate="fade">
+              <slot name="cover" />
+            </div>
+          )}
+          <main
+            id="main-content"
+            class:list={['page-shell', 'tufte-body', { 'has-cover': hasCover }]}
+            transition:animate="fade"
+          >
+            <slot name="main" />
+          </main>
+        </>
+      )
+    }
 
     <footer class="site-footer">
-      <div>
+      <div class="footer-inner">
         <span>在 Notion 写作，由 Astro 发布</span>
         <span aria-hidden="true">·</span>
-        <a href="https://github.com/otoyo/astro-notion-blog" target="_blank" rel="noreferrer">
-          开源博客内核
-        </a>
+        <a href={getNavLink('/feed')} data-astro-reload>RSS</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://ovo7.cc" target="_blank" rel="noreferrer">主站</a>
+        <span aria-hidden="true">·</span>
+        <a href="mailto:hi@ovo7.cc">hi@ovo7.cc</a>
       </div>
     </footer>
 
     <SearchModal />
-    {ENABLE_LIGHTBOX && <script src={getStaticFilePath('/scripts/fslightbox.js')} />}
+    <NavTransition />
+    {
+      ENABLE_LIGHTBOX && (
+        <script src={getStaticFilePath('/scripts/fslightbox.js')} />
+      )
+    }
   </body>
 </html>
 
 <style is:global>
-  :root {
-    --paper: #f7f8f6;
-    --surface: #ffffff;
-    --ink: #202521;
-    --muted: #69716b;
-    --line: #dfe4df;
-    --soft-green: #e9f2ed;
-    --green: #2e7458;
-    --coral: #c85443;
-    --blue: #326b8a;
-    --bg: var(--paper);
-    --fg: var(--ink);
-    --accents-1: var(--green);
-    --accents-2: var(--coral);
-    --accents-3: var(--blue);
-    --hr-border: var(--line);
-    --input-bg: #f1f4f1;
-    --radius: 6px;
-    --font-sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont,
-      'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-    --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
-  }
-
   * {
     box-sizing: border-box;
-    letter-spacing: 0;
-  }
-
-  html {
-    scroll-behavior: smooth;
-    background: var(--paper);
-  }
-
-  body {
-    min-width: 320px;
-    min-height: 100vh;
-    margin: 0;
-    background: var(--paper);
-    color: var(--ink);
-    font-family: var(--font-sans);
-    font-size: 16px;
-    line-height: 1.7;
-    overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
-    -webkit-text-size-adjust: 100%;
-  }
-
-  a {
-    color: var(--green);
-    text-decoration: none;
-    text-underline-offset: 0.2em;
-  }
-
-  a:hover {
-    color: var(--coral);
-  }
-
-  :focus-visible {
-    outline: 3px solid rgba(50, 107, 138, 0.35);
-    outline-offset: 3px;
   }
 
   .skip-link {
@@ -195,298 +184,233 @@ if (database.Cover) {
     border-radius: var(--radius);
     padding: 8px 12px;
     background: var(--ink);
-    color: #fff;
+    color: var(--paper);
   }
 
   .skip-link:focus {
     transform: translateY(0);
   }
 
+  /* ===== 站点 chrome（版面尺度见 tufte.css 的 .tufte-body） ===== */
   .site-header {
-    position: sticky;
-    z-index: 50;
-    top: 0;
-    border-bottom: 1px solid rgba(223, 228, 223, 0.9);
-    background: rgba(247, 248, 246, 0.94);
-    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
   }
 
   .header-inner {
-    display: flex;
-    min-height: 76px;
-    max-width: 1160px;
+    box-sizing: content-box;
+    width: 87.5%;
+    max-width: var(--tufte-max);
     margin: 0 auto;
-    padding: 10px 24px;
+    padding: 1.1rem 0 1.1rem 12.5%;
+  }
+
+  /* 顶栏内容与正文栏同宽（--text-width），各页共用，不按页面类型分叉 */
+  .header-bar {
+    display: flex;
+    width: 100%;
     align-items: center;
     justify-content: space-between;
-    gap: 28px;
+    gap: 24px;
+  }
+
+  @media (min-width: 761px) {
+    .header-bar {
+      width: var(--text-width);
+    }
   }
 
   .brand {
     display: inline-flex;
-    min-width: 0;
     align-items: center;
-    gap: 11px;
+    gap: 0.45em;
     color: var(--ink);
-  }
-
-  .brand:hover {
-    color: var(--ink);
-  }
-
-  .brand-mark {
-    display: grid;
-    width: 38px;
-    height: 38px;
-    flex: 0 0 38px;
-    place-items: center;
-    border: 1px solid var(--ink);
-    border-radius: 50%;
-    background: var(--surface);
-    color: var(--coral);
-    font-size: 18px;
-    font-weight: 800;
-  }
-
-  .brand-copy {
-    display: grid;
-    min-width: 0;
-    line-height: 1.25;
-  }
-
-  .brand-copy strong {
-    overflow: hidden;
-    color: var(--ink);
-    font-size: 16px;
-    text-overflow: ellipsis;
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    letter-spacing: 0.02em;
     white-space: nowrap;
+    text-decoration: none;
   }
 
-  .brand-copy small {
-    overflow: hidden;
-    margin-top: 3px;
-    color: var(--muted);
-    font-size: 12px;
-    font-style: italic;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .brand-logo {
+    display: block;
+    width: 1.2em;
+    height: 1.2em;
+    flex-shrink: 0;
+    object-fit: contain;
+    border-radius: 2px;
+  }
+
+  .brand-title {
+    line-height: 1.2;
   }
 
   .site-nav {
     display: flex;
     flex: 0 0 auto;
     align-items: center;
-    gap: 4px;
+    gap: 18px;
   }
 
   .site-nav > a {
-    border-radius: var(--radius);
-    padding: 8px 10px;
     color: var(--muted);
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
   }
 
   .site-nav > a:hover {
-    background: var(--soft-green);
-    color: var(--green);
+    color: var(--ink);
   }
 
-  .site-cover {
-    max-width: 1160px;
-    height: 180px;
-    margin: 0 auto;
+  .bare-main {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+    .page-cover {
+    width: 100%;
+    height: min(38vh, 280px);
     overflow: hidden;
-    border-right: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-    border-left: 1px solid var(--line);
+    background: var(--soft);
   }
 
-  .site-cover img {
+  .page-cover picture,
+  .page-cover img {
     display: block;
     width: 100%;
     height: 100%;
+  }
+
+  .page-cover img {
     object-fit: cover;
+    object-position: center 25%;
   }
 
+  /* page-shell 只负责纵向留白；横向尺度由 .tufte-body 决定 */
   .page-shell {
-    display: grid;
-    width: min(100%, 1160px);
-    min-height: calc(100vh - 156px);
-    margin: 0 auto;
-    grid-template-columns: minmax(0, 1fr) 280px;
+    min-height: calc(100vh - 200px);
+    padding-top: 3.5rem;
+    padding-bottom: 5rem;
   }
 
-  .page-shell > main {
-    min-width: 0;
-    padding: 48px 56px 64px 24px;
-  }
-
-  .page-shell > aside {
-    min-width: 0;
-    border-left: 1px solid var(--line);
-    padding: 48px 24px 64px 28px;
-  }
-
-  .aside-inner {
-    position: sticky;
-    top: 112px;
+  .page-shell.has-cover {
+    min-height: 0;
+    padding-top: 2.5rem;
   }
 
   .site-footer {
     border-top: 1px solid var(--line);
     color: var(--muted);
-    font-size: 13px;
+    font-size: 1rem;
+    overflow: visible;
+    /* 贴纸落下时页脚要长出托盘，让它长得慢一点，别「啪」地跳一下 */
+    transition:
+      min-height 420ms ease,
+      padding-bottom 420ms ease;
   }
 
-  .site-footer > div {
+  .site-footer.is-physics-shelf {
+    /* 给掉下来的贴纸留一层托盘，免得堆到屏幕外看不见 */
+    min-height: 8rem;
+    padding-bottom: 3rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-footer {
+      transition: none;
+    }
+  }
+
+  .footer-inner {
+    box-sizing: content-box;
     display: flex;
-    max-width: 1160px;
+    width: 87.5%;
+    max-width: var(--tufte-max);
     margin: 0 auto;
-    padding: 22px 24px;
+    padding: 1.4rem 0 1.4rem 12.5%;
     gap: 8px;
+    flex-wrap: wrap;
+    align-items: baseline;
   }
 
-  h1,
-  h2,
-  h3 {
-    color: var(--ink);
-    line-height: 1.25;
+  /* 首页没有顶栏，页脚跟版心对齐，别再按 Tufte 那 12.5% 栏外注缩进 */
+  body:has(.bare-main) .footer-inner {
+    box-sizing: border-box;
+    width: min(100%, 720px);
+    max-width: 720px;
+    padding: 1.6rem 28px 2.4rem;
+    justify-content: center;
   }
 
-  p,
-  ul,
-  ol {
-    color: var(--ink);
+  /* 物理下落时关掉平滑滚动，否则每帧 scrollBy 会被插值叠成乱飘 */
+  html.physics-running {
+    scroll-behavior: auto;
   }
 
-  code {
-    border-radius: 4px;
-    padding: 0.18em 0.35em;
-    background: #edf0ed;
-    color: #b33f36;
-    font-family: var(--font-mono);
-    font-size: 0.9em;
+  /* 物理层里的字 / 贴纸：引擎用 transform 驱动位置 */
+  .physics-layer {
+    position: absolute;
+    z-index: 40;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    overflow: visible;
+    pointer-events: none;
   }
 
-  pre {
-    overflow: auto;
-    border: 1px solid #303834;
-    border-radius: var(--radius);
-    padding: 18px;
-    background: #202622;
-    white-space: pre;
+  .physics-layer > .is-falling {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: auto;
+    bottom: auto;
+    margin: 0;
+    /* 贴纸本体是 li，脱离 ul 之后会自己长出一个圆点，这里按住 */
+    list-style: none;
+    transform-origin: center center;
+    pointer-events: none;
+    will-change: transform;
   }
 
-  pre code {
-    padding: 0;
-    background: transparent;
-    color: inherit;
+  /* 颜色与下划线由 sticker-physics 搬家时钉成内联值，这里只放行点击 */
+  .physics-layer > a.is-falling {
+    pointer-events: auto;
   }
 
-  blockquote {
-    margin: 1.5rem 0;
-    border-left: 3px solid var(--coral);
-    padding: 0.5rem 0 0.5rem 1rem;
-    color: var(--muted);
+  [data-physics-solid] {
+    display: inline-block;
+    white-space: nowrap;
   }
 
-  hr {
-    height: 1px;
-    border: 0;
-    margin: 2rem 0;
-    background: var(--line);
-  }
-
-  table {
-    display: block;
-    max-width: 100%;
-    overflow-x: auto;
-    border-collapse: collapse;
-  }
-
-  th,
-  td {
-    border: 1px solid var(--line);
-    padding: 9px 12px;
-    text-align: left;
-  }
-
-  th {
-    background: #f0f3f0;
-  }
-
-  img,
-  video,
-  iframe {
-    max-width: 100%;
-  }
-
-  @media (max-width: 820px) {
-    .header-inner {
-      min-height: 68px;
-      padding: 8px 16px;
-      gap: 12px;
+  @media (max-width: 760px) {
+    .header-inner,
+    .footer-inner {
+      box-sizing: border-box;
+      width: 100%;
+      padding-left: 5%;
+      padding-right: 5%;
     }
 
-    .brand-copy small {
-      display: none;
-    }
-
-    .site-nav > a:nth-of-type(2),
-    .site-nav > a:nth-of-type(3) {
-      display: none;
-    }
-
-    .page-shell {
-      grid-template-columns: 1fr;
-    }
-
-    .page-shell > main {
-      padding: 32px 18px 48px;
-    }
-
-    .page-shell > aside {
-      border-top: 1px solid var(--line);
-      border-left: 0;
-      padding: 28px 18px 42px;
-    }
-
-    .aside-inner {
-      position: static;
-    }
-
-    .site-cover {
-      height: 130px;
-      border-right: 0;
-      border-left: 0;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .brand-mark {
-      width: 34px;
-      height: 34px;
-      flex-basis: 34px;
-    }
-
-    .brand-copy strong {
-      max-width: 116px;
-      font-size: 14px;
+    .header-bar {
+      width: 100%;
+      flex-wrap: wrap;
+      row-gap: 8px;
     }
 
     .site-nav {
-      gap: 0;
+      gap: 14px;
     }
 
-    .site-nav > a {
-      padding: 8px 7px;
-      font-size: 13px;
+    .page-shell {
+      padding-left: 5%;
+      padding-right: 5%;
+      padding-top: 2.5rem;
     }
 
-    .site-footer > div {
-      flex-wrap: wrap;
-      padding: 18px;
+    .page-cover {
+      height: 180px;
     }
   }
 </style>

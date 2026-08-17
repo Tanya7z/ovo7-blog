@@ -20,7 +20,7 @@ import { Icon } from 'astro-icon/components'
         data-close-search
         aria-label="关闭搜索"
         title="关闭搜索"
-      ><Icon name="octicon:x-24" /></button>
+      ><Icon name="ph:x-light" /></button>
     </div>
     <div class="search-prompt">
       <input
@@ -75,7 +75,7 @@ import { Icon } from 'astro-icon/components'
     padding: 12px 12px 10px 16px;
     color: var(--fg);
     font-size: 14px;
-    font-weight: 750;
+    font-weight: 700;
   }
   .search-close {
     display: grid;
@@ -90,8 +90,8 @@ import { Icon } from 'astro-icon/components'
   }
   .search-close:hover {
     cursor: pointer;
-    background: var(--soft-green);
-    color: var(--green);
+    background: var(--soft);
+    color: var(--ink);
   }
   .search-close svg {
     width: 17px;
@@ -140,7 +140,11 @@ import { Icon } from 'astro-icon/components'
     border-radius: var(--radius);
   }
   div.search-result ul > :global(li.selected > a) {
-    background-color: rgba(241, 241, 239, 1);
+    background-color: var(--soft);
+  }
+
+  div.search-result ul > :global(li > a:hover) {
+    background-color: var(--soft);
   }
 
   div.search-result :global(div.search-result-title) {
@@ -159,173 +163,236 @@ import { Icon } from 'astro-icon/components'
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    let feedItems = []
-    let fetched = false
-    let isOpen = false
+  interface FeedItem {
+    title: string
+    link: string
+    description: string
+    pubDate: string
+  }
 
-    const container = document.querySelector('.search-modal-container')
-    const input = document.querySelector('.search-prompt input')
-    const trigger = document.querySelector('.open-search-modal')
-    const resultList = document.querySelector('.search-result ul')
-    const emptyState = document.querySelector('.search-empty')
+  let feedItems: FeedItem[] = []
+  let fetched = false
+  let isOpen = false
+  let container: HTMLElement | null = null
+  let input: HTMLInputElement | null = null
+  let resultList: HTMLElement | null = null
+  let emptyState: HTMLElement | null = null
+  let didBindGlobals = false
 
-    if (!container || !input || !trigger || !resultList || !emptyState) return
+  function refreshElements() {
+    const containerEl = document.querySelector('.search-modal-container')
+    const inputEl = document.querySelector('.search-prompt input')
+    const resultListEl = document.querySelector('.search-result ul')
+    const emptyStateEl = document.querySelector('.search-empty')
 
-    async function openModal() {
-      isOpen = true
-      container.style.display = 'block'
-      container.setAttribute('aria-hidden', 'false')
-      trigger.setAttribute('aria-expanded', 'true')
-      input.focus()
+    container = containerEl instanceof HTMLElement ? containerEl : null
+    input = inputEl instanceof HTMLInputElement ? inputEl : null
+    resultList = resultListEl instanceof HTMLElement ? resultListEl : null
+    emptyState = emptyStateEl instanceof HTMLElement ? emptyStateEl : null
 
-      if (!fetched) {
-        try {
-          await fetchRSS()
-        } catch (error) {
-          console.error(error)
-          fetched = true
-        }
-      }
-      if (isOpen) searchAndRender()
-    }
-
-    function closeModal() {
-      isOpen = false
-      container.style.display = 'none'
-      container.setAttribute('aria-hidden', 'true')
-      trigger.setAttribute('aria-expanded', 'false')
-      trigger.focus()
-    }
-
-    function handleKeydown(event) {
-      if (!isOpen) return
-
-      if (event.keyCode === 13) {
-        select()
-      } else if (event.keyCode === 27) {
-        closeModal()
-      } else if (event.keyCode === 38) {
-        selectUp(event)
-      } else if (event.keyCode === 40) {
-        selectDown(event)
-      }
-    }
-
-    function select() {
-      const anchor = resultList.querySelector('li.selected a')
-      if (anchor) anchor.click()
-    }
-
-    function selectFirst() {
-      const first = resultList.firstElementChild
-      if (first) first.classList.add('selected')
-    }
-
-    function selectUp(event) {
-      event.preventDefault()
-      if (!resultList.children.length) return
-
-      const selected = resultList.querySelector('.selected')
-      if (selected) {
-        selected.classList.remove('selected')
-        ;(selected.previousElementSibling || resultList.lastElementChild).classList.add(
-          'selected'
-        )
-      } else {
-        resultList.lastElementChild.classList.add('selected')
-      }
-    }
-
-    function selectDown(event) {
-      event.preventDefault()
-      if (!resultList.children.length) return
-
-      const selected = resultList.querySelector('.selected')
-      if (selected) {
-        selected.classList.remove('selected')
-        ;(selected.nextElementSibling || resultList.firstElementChild).classList.add(
-          'selected'
-        )
-      } else {
-        resultList.firstElementChild.classList.add('selected')
-      }
-    }
-
-    function handleMouseover(event) {
-      const item = event.target.closest('li')
-      if (!item) return
-      Array.from(resultList.children).forEach((element) => {
-        element.classList.remove('selected')
-      })
-      item.classList.add('selected')
-    }
-
-    function searchAndRender() {
-      const text = input.value.trim()
-      renderResults(text ? search(text) : feedItems)
-      selectFirst()
-    }
-
-    function search(query) {
-      const normalizedQuery = query.toLocaleLowerCase()
-      return feedItems.filter((item) => {
-        return (
-          item.title.toLocaleLowerCase().includes(normalizedQuery) ||
-          item.description?.toLocaleLowerCase().includes(normalizedQuery)
-        )
-      })
-    }
-
-    function renderResults(results) {
-      resultList.innerHTML = ''
-      emptyState.hidden = results.length !== 0
-
-      results.forEach((item) => {
-        const li = document.createElement('li')
-        const anchor = document.createElement('a')
-        const title = document.createElement('div')
-        const description = document.createElement('div')
-
-        title.classList.add('search-result-title')
-        title.textContent = item.title
-        description.classList.add('search-result-description')
-        description.textContent = item.description || ''
-        anchor.href = item.link
-
-        li.addEventListener('mouseover', handleMouseover)
-        anchor.append(title, description)
-        li.appendChild(anchor)
-        resultList.appendChild(li)
-      })
-    }
-
-    async function fetchRSS() {
-      const url = new URL(location.href)
-      const port = url.port ? `:${url.port}` : ''
-      const res = await fetch(`${url.protocol}//${url.hostname}${port}/feed`)
-      if (!res.ok) throw new Error('Failed to fetch RSS feed')
-
-      const parser = new DOMParser()
-      const xml = parser.parseFromString(await res.text(), 'text/xml')
-      feedItems = Array.from(xml.getElementsByTagName('item')).map((item) => ({
-        title: item.getElementsByTagName('title')[0]?.textContent || '',
-        link: item.getElementsByTagName('link')[0]?.textContent || '#',
-        description:
-          item.getElementsByTagName('description')[0]?.textContent || '',
-        pubDate: item.getElementsByTagName('pubDate')[0]?.textContent || '',
-      }))
-      fetched = true
+    if (input && !input.dataset.searchBound) {
+      input.dataset.searchBound = '1'
+      input.addEventListener('input', searchAndRender)
     }
 
     document.querySelectorAll('.open-search-modal').forEach((element) => {
-      element.addEventListener('click', openModal)
+      if (!(element instanceof HTMLElement)) return
+      if (!element.hasAttribute('aria-expanded')) {
+        element.setAttribute('aria-expanded', 'false')
+      }
     })
-    document.querySelectorAll('[data-close-search]').forEach((element) => {
-      element.addEventListener('click', closeModal)
+  }
+
+  async function openModal() {
+    refreshElements()
+    if (!container || !input) return
+
+    isOpen = true
+    container.style.display = 'block'
+    container.setAttribute('aria-hidden', 'false')
+    document
+      .querySelectorAll('.open-search-modal')
+      .forEach((el) => el.setAttribute('aria-expanded', 'true'))
+    input.focus()
+
+    if (!fetched) {
+      try {
+        await fetchRSS()
+      } catch (error) {
+        console.error(error)
+        fetched = true
+      }
+    }
+    if (isOpen) searchAndRender()
+  }
+
+  function closeModal() {
+    refreshElements()
+    if (!container) return
+
+    isOpen = false
+    container.style.display = 'none'
+    container.setAttribute('aria-hidden', 'true')
+    document
+      .querySelectorAll('.open-search-modal')
+      .forEach((el) => el.setAttribute('aria-expanded', 'false'))
+
+    const trigger = document.querySelector('.open-search-modal')
+    if (trigger instanceof HTMLElement) trigger.focus()
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (!isOpen) return
+
+    if (event.key === 'Enter') {
+      select()
+    } else if (event.key === 'Escape') {
+      closeModal()
+    } else if (event.key === 'ArrowUp') {
+      selectUp(event)
+    } else if (event.key === 'ArrowDown') {
+      selectDown(event)
+    }
+  }
+
+  function select() {
+    if (!resultList) return
+    const anchor = resultList.querySelector('li.selected a')
+    if (anchor instanceof HTMLElement) anchor.click()
+  }
+
+  function selectFirst() {
+    if (!resultList) return
+    const first = resultList.firstElementChild
+    if (first) first.classList.add('selected')
+  }
+
+  function selectUp(event: KeyboardEvent) {
+    event.preventDefault()
+    if (!resultList?.children.length) return
+
+    const selected = resultList.querySelector('.selected')
+    if (selected) {
+      selected.classList.remove('selected')
+      ;(
+        selected.previousElementSibling || resultList.lastElementChild
+      )?.classList.add('selected')
+    } else {
+      resultList.lastElementChild?.classList.add('selected')
+    }
+  }
+
+  function selectDown(event: KeyboardEvent) {
+    event.preventDefault()
+    if (!resultList?.children.length) return
+
+    const selected = resultList.querySelector('.selected')
+    if (selected) {
+      selected.classList.remove('selected')
+      ;(
+        selected.nextElementSibling || resultList.firstElementChild
+      )?.classList.add('selected')
+    } else {
+      resultList.firstElementChild?.classList.add('selected')
+    }
+  }
+
+  function handleMouseover(event: Event) {
+    if (!resultList) return
+    const target = event.target
+    if (!(target instanceof Element)) return
+    const item = target.closest('li')
+    if (!item) return
+    Array.from(resultList.children).forEach((element) => {
+      element.classList.remove('selected')
     })
-    input.addEventListener('input', searchAndRender)
-    trigger.setAttribute('aria-expanded', 'false')
+    item.classList.add('selected')
+  }
+
+  function searchAndRender() {
+    if (!input || !resultList || !emptyState) return
+    const text = input.value.trim()
+    renderResults(text ? search(text) : feedItems)
+    selectFirst()
+  }
+
+  function search(query: string) {
+    const normalizedQuery = query.toLocaleLowerCase()
+    return feedItems.filter((item) => {
+      return (
+        item.title.toLocaleLowerCase().includes(normalizedQuery) ||
+        item.description?.toLocaleLowerCase().includes(normalizedQuery)
+      )
+    })
+  }
+
+  function renderResults(results: FeedItem[]) {
+    const list = resultList
+    const empty = emptyState
+    if (!list || !empty) return
+    list.innerHTML = ''
+    empty.hidden = results.length !== 0
+
+    results.forEach((item) => {
+      const li = document.createElement('li')
+      const anchor = document.createElement('a')
+      const title = document.createElement('div')
+      const description = document.createElement('div')
+
+      title.classList.add('search-result-title')
+      title.textContent = item.title
+      description.classList.add('search-result-description')
+      description.textContent = item.description || ''
+      anchor.href = item.link
+
+      li.addEventListener('mouseover', handleMouseover)
+      anchor.append(title, description)
+      li.appendChild(anchor)
+      list.appendChild(li)
+    })
+  }
+
+  async function fetchRSS() {
+    const url = new URL(location.href)
+    const port = url.port ? `:${url.port}` : ''
+    const res = await fetch(`${url.protocol}//${url.hostname}${port}/feed`)
+    if (!res.ok) throw new Error('Failed to fetch RSS feed')
+
+    const parser = new DOMParser()
+    const xml = parser.parseFromString(await res.text(), 'text/xml')
+    feedItems = Array.from(xml.getElementsByTagName('item')).map((item) => ({
+      title: item.getElementsByTagName('title')[0]?.textContent || '',
+      link: item.getElementsByTagName('link')[0]?.textContent || '#',
+      description:
+        item.getElementsByTagName('description')[0]?.textContent || '',
+      pubDate: item.getElementsByTagName('pubDate')[0]?.textContent || '',
+    }))
+    fetched = true
+  }
+
+  function bindGlobals() {
+    if (didBindGlobals) return
+    didBindGlobals = true
+
+    document.addEventListener('click', (event) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      if (target.closest('.open-search-modal')) {
+        event.preventDefault()
+        openModal()
+        return
+      }
+      if (target.closest('[data-close-search]')) {
+        closeModal()
+      }
+    })
     document.addEventListener('keydown', handleKeydown)
+  }
+
+  // 首次加载与 ClientRouter 换页后都会触发
+  document.addEventListener('astro:page-load', () => {
+    bindGlobals()
+    refreshElements()
+    if (isOpen) closeModal()
   })
 </script>

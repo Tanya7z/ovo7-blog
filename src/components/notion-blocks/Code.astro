@@ -21,11 +21,12 @@ export interface Props {
 }
 
 const { block } = Astro.props
+const codeBlock = interfaces.must(block.Code, 'Code')
 
-const code = block.Code.RichTexts.map(
-  (richText: interfaces.RichText) => richText.Text.Content
+const code = codeBlock.RichTexts.map(
+  (richText: interfaces.RichText) => richText.Text?.Content ?? ''
 ).join('')
-const language = block.Code.Language.toLowerCase()
+const language = codeBlock.Language.toLowerCase()
 const grammer =
   Prism.languages[language.toLowerCase()] || Prism.languages.javascript
 ---
@@ -48,28 +49,58 @@ const grammer =
       )
     }
   </div>
-  <Caption richTexts={block.Code.Caption} />
+  <Caption richTexts={codeBlock.Caption} />
 </div>
 
 <script>
   import mermaid from 'mermaid'
-  mermaid.initialize({ startOnLoad: true, theme: 'neutral' })
+
+  let mermaidReady = false
+
+  function ensureMermaid() {
+    if (mermaidReady) return
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'neutral',
+    })
+    mermaidReady = true
+  }
+
+  document.addEventListener('astro:page-load', async () => {
+    const nodes = document.querySelectorAll('.mermaid')
+    if (nodes.length === 0) return
+    ensureMermaid()
+    await mermaid.run({
+      nodes: Array.from(nodes).filter(
+        (node): node is HTMLElement => node instanceof HTMLElement
+      ),
+    })
+  })
 </script>
 
 <script>
-  document.querySelectorAll('button.copy').forEach((button) => {
-    button.addEventListener('click', (ev) => {
-      navigator.clipboard
-        .writeText(ev.target.getAttribute('data-code'))
-        .then(() => {
-          const originalText = ev.target.innerText
+  document.addEventListener('astro:page-load', () => {
+    document.querySelectorAll('button.copy').forEach((button) => {
+      if (!(button instanceof HTMLButtonElement)) return
+      if (button.dataset.copyBound === '1') return
+      button.dataset.copyBound = '1'
 
-          ev.target.innerText = ev.target.getAttribute('data-done-text')
+      button.addEventListener('click', (ev) => {
+        const target = ev.currentTarget
+        if (!(target instanceof HTMLButtonElement)) return
+        const copied = target.getAttribute('data-code') ?? ''
+        const doneText = target.getAttribute('data-done-text') ?? 'Copied!'
 
+        navigator.clipboard.writeText(copied).then(() => {
+          const originalText = target.innerText
+          target.innerText = doneText
           setTimeout(() => {
-            ev.target.innerText = originalText
+            target.innerText = originalText
           }, 3000)
         })
+      })
     })
   })
 </script>
@@ -81,7 +112,7 @@ const grammer =
     margin-bottom: 0.6rem;
   }
   .code > div {
-    background: rgb(247, 246, 243);
+    background: transparent;
     border-radius: var(--radius);
   }
   .code > div div {
@@ -91,11 +122,13 @@ const grammer =
   .code button.copy {
     display: block;
     width: 4rem;
-    border: 0;
+    border: 1px solid var(--line);
     border-radius: var(--radius);
-    background-color: rgba(227, 226, 224, 0.5);
-    color: var(--fg);
-    line-height: 1.2rem;
+    background-color: transparent;
+    color: var(--muted);
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    line-height: 1.4rem;
     cursor: pointer;
   }
   .code pre {
@@ -112,10 +145,10 @@ const grammer =
       height: 10px;
     }
     &::-webkit-scrollbar-thumb {
-      background: rgb(211, 209, 203);
+      background: var(--line);
     }
     &::-webkit-scrollbar-track {
-      background: rgb(237, 236, 233);
+      background: var(--soft);
     }
   }
   .code pre.mermaid {
@@ -124,7 +157,7 @@ const grammer =
   .code pre code {
     color: var(--fg);
     padding: 0;
-    background: rgb(247, 246, 243) !important;
+    background: transparent !important;
     border-radius: 0;
   }
 </style>

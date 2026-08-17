@@ -1,0 +1,465 @@
+/* Tufte CSS 移植版（中文本地化）
+ * 参照 https://edwardtufte.github.io/tufte-css/
+ * 本地化：正文与标题的中文统一用朱雀仿宋兜底；
+ * ET Book 只覆盖拉丁字形（靠字体回退链自然分工）。
+ */
+
+/* ===== ET Book 自托管字体 ===== */
+@font-face {
+  font-family: 'et-book';
+  src: url('/fonts/et-book/et-book-roman-line-figures.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'et-book';
+  src: url('/fonts/et-book/et-book-display-italic-old-style-figures.woff')
+    format('woff');
+  font-weight: normal;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'et-book';
+  src: url('/fonts/et-book/et-book-bold-line-figures.woff') format('woff');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'et-book-roman-old-style';
+  src: url('/fonts/et-book/et-book-roman-old-style-figures.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ===== 令牌（单一真源，覆盖旧变量名以兼容既有组件） ===== */
+:root {
+  --paper: #fffff8;
+  --surface: #fffff8;
+  --ink: #111111;
+  --muted: #6a6a68;
+  --line: #d8d4c6;
+  --soft: #f4f1e6;
+  /* Tufte 不给正文链接上色；保留变量名但指向墨色，避免残留蓝色 */
+  --accent: #111111;
+  --accent-soft: #f4f1e6;
+  --warm: #a89968;
+  --bg: var(--paper);
+  --fg: var(--ink);
+  --accents-1: var(--ink);
+  --accents-2: var(--muted);
+  --accents-3: var(--muted);
+  --hr-border: var(--line);
+  --input-bg: #f7f3ea;
+  --radius: 0;
+
+  --font-body: 'et-book', 'Zhuque Fangsong (technical preview)', 'Songti SC',
+    'STSong', Palatino, Georgia, serif;
+  --font-display: 'et-book', 'Zhuque Fangsong (technical preview)', 'Songti SC',
+    'STSong', Palatino, Georgia, serif;
+  --font-numeral: 'et-book-roman-old-style', var(--font-body);
+  --font-sans: 'Gill Sans', 'Gill Sans MT', 'PingFang SC', 'Microsoft YaHei',
+    Calibri, sans-serif;
+  --font-mono: Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+
+  /* Tufte 版面尺度 */
+  --tufte-max: 1400px;
+  --text-width: 55%;
+  --list-width: 50%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #151515;
+    --surface: #151515;
+    --ink: #ddd;
+    --muted: #a0a0a0;
+    --line: #333333;
+    --soft: #1c1c1c;
+    --accent: #ddd;
+    --accent-soft: #1c1c1c;
+    --warm: #8a7f5c;
+    --bg: var(--paper);
+    --fg: var(--ink);
+    --accents-1: var(--ink);
+    --accents-2: var(--muted);
+    --accents-3: var(--muted);
+    --hr-border: var(--line);
+    --input-bg: #1c1c1c;
+  }
+}
+
+/* ===== 基础排版 ===== */
+html {
+  font-size: 15px;
+  scroll-behavior: smooth;
+  background: var(--paper);
+  color-scheme: light dark;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1.4rem;
+  line-height: 2rem;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+p,
+ul,
+ol,
+dl {
+  font-size: 1.4rem;
+  line-height: 2rem;
+  color: var(--ink);
+}
+
+p {
+  margin-top: 1.4rem;
+  margin-bottom: 1.4rem;
+}
+
+/* h1 文档标题；h2/h3 节标题（拉丁走 ET Book 斜体，中文同朱雀仿宋） */
+h1 {
+  margin: 2.5rem 0 1.5rem;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 3.2rem;
+  line-height: 1.1;
+  font-synthesis: none;
+}
+h2,
+h3 {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.2;
+  font-synthesis: none;
+}
+h2 {
+  margin: 2.1rem 0 1.4rem;
+  font-size: 2.2rem;
+}
+h3 {
+  margin: 2rem 0 1.4rem;
+  font-size: 1.7rem;
+}
+
+.subtitle {
+  display: block;
+  margin: 1rem 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.8rem;
+  line-height: 1.2;
+  color: var(--muted);
+  font-synthesis: none;
+}
+
+/* 段首小型大写起句（可选装饰） */
+.newthought {
+  font-variant: small-caps;
+  font-size: 1.2em;
+}
+
+/* 用 old-style 数字排数字/日期 */
+.numeral,
+.numerals {
+  font-family: var(--font-numeral);
+}
+
+/* ===== 链接：墨色不变，下划线只在 hover / 键盘聚焦时出现 =====
+ * 偏离 Tufte 原版（原版常驻下划线）：本站按站主偏好改为悬停显示。
+ */
+a:link,
+a:visited {
+  color: inherit;
+  text-decoration: none;
+  text-underline-offset: 0.12em;
+  text-decoration-thickness: 0.05em;
+}
+
+a:hover,
+a:focus-visible {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(17, 17, 17, 0.4);
+  outline-offset: 3px;
+}
+
+/* ===== 代码：纸面等宽字，浅色细边框 ===== */
+code {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  padding: 0.1em 0.3em;
+  background: var(--soft);
+  color: var(--ink);
+  border-radius: 0;
+}
+
+pre {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 1rem 1.2rem;
+  background: var(--soft);
+  white-space: pre;
+}
+
+pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 0.9rem;
+}
+
+blockquote {
+  margin: 1.5rem 0;
+  border-left: 2px solid var(--line);
+  padding: 0.35rem 0 0.35rem 1rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+hr {
+  display: block;
+  height: 1px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 2rem 0;
+}
+
+table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 1.2rem;
+}
+th,
+td {
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+  text-align: left;
+}
+th {
+  background: var(--soft);
+}
+
+img,
+video,
+iframe {
+  max-width: 100%;
+}
+
+/* 无衬线辅助 */
+.sans {
+  font-family: var(--font-sans);
+  letter-spacing: 0.03em;
+}
+
+/* ===== Tufte 非对称版面 =====
+ * .tufte-body 承担 Tufte 的 body 尺度：宽 87.5% + 左内边距 12.5%
+ * 正文块限宽 55%，右侧留白供旁注浮动。
+ */
+.tufte-body {
+  box-sizing: content-box;
+  width: 87.5%;
+  max-width: var(--tufte-max);
+  margin: 0 auto;
+  padding-left: 12.5%;
+}
+
+/* 文章正文栏：整栏限宽 55%，右侧留白供旁注浮动。
+ * 限宽下放到 .post-body 这一层，使旁注的负外边距与 Tufte 原值一致；
+ * 列表/归档等非文章内容不受此限，保持在 .tufte-body 内容区自然铺开。
+ */
+.post-body {
+  width: var(--text-width);
+}
+
+/* 详情页页首（h1 + 日期副题）与正文栏对齐 */
+.tufte-body .post > .post-title,
+.tufte-body .post > .subtitle {
+  width: var(--text-width);
+}
+
+/* 全宽逃逸：需要横跨时加 .fullwidth（55% 栏 × 175% ≈ 内容区满宽） */
+.post-body .fullwidth,
+.post-body > section > .column-list {
+  width: 175%;
+  max-width: 175%;
+}
+
+article.post {
+  counter-reset: sidenote-counter;
+}
+
+.post-body > section {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+h3.heading-minor {
+  font-size: 1.4rem;
+  margin-top: 1.6rem;
+}
+
+/* ===== 旁注 / 边注 ===== */
+.sidenote,
+.marginnote {
+  float: right;
+  clear: right;
+  margin-right: -60%;
+  width: 50%;
+  margin-top: 0.3rem;
+  margin-bottom: 0;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  vertical-align: baseline;
+  position: relative;
+  color: var(--muted);
+}
+
+.sidenote-number {
+  counter-increment: sidenote-counter;
+}
+
+.sidenote-number:after,
+.sidenote:before {
+  font-family: var(--font-numeral);
+  position: relative;
+  vertical-align: baseline;
+}
+
+.sidenote-number:after {
+  content: counter(sidenote-counter);
+  font-size: 1rem;
+  top: -0.5rem;
+  left: 0.1rem;
+}
+
+.sidenote:before {
+  content: counter(sidenote-counter) ' ';
+  font-size: 1rem;
+  top: -0.5rem;
+}
+
+.marginnote img,
+.sidenote img {
+  display: block;
+  max-width: 100%;
+  margin-bottom: 0.4rem;
+}
+
+/* 边注切换：宽屏只显示 sidenote 编号，隐藏 ⊕ 与复选框 */
+input.margin-toggle {
+  display: none;
+}
+label.margin-toggle:not(.sidenote-number) {
+  display: none;
+}
+label.sidenote-number {
+  display: inline-block;
+  max-height: 2rem;
+  cursor: pointer;
+}
+
+div.epigraph {
+  margin: 3em 0;
+}
+div.epigraph > blockquote {
+  border-left: none;
+  padding-left: 0;
+  color: var(--ink);
+}
+div.epigraph > blockquote > footer {
+  font-style: normal;
+  font-size: 1.1rem;
+  text-align: right;
+  color: var(--muted);
+  margin-top: 0.6rem;
+}
+
+.iframe-wrapper {
+  position: relative;
+  padding-bottom: 56.25%;
+  padding-top: 25px;
+  height: 0;
+}
+.iframe-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 品牌名与跳转链接不需要悬停下划线 */
+.brand,
+.brand:hover,
+.skip-link,
+.skip-link:hover {
+  text-decoration: none;
+}
+
+/* ===== 窄屏（<=760px）：取消非对称，旁注折叠 ===== */
+@media (max-width: 760px) {
+  .tufte-body {
+    box-sizing: border-box;
+    width: 100%;
+    padding-left: 0;
+  }
+
+  .post-body,
+  .tufte-body .post > .post-title,
+  .tufte-body .post > .subtitle {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .post-body .fullwidth,
+  .post-body > section > .column-list {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  label.margin-toggle:not(.sidenote-number) {
+    display: inline;
+    cursor: pointer;
+    color: var(--muted);
+  }
+
+  label.sidenote-number {
+    cursor: pointer;
+  }
+
+  .sidenote,
+  .marginnote {
+    display: none;
+  }
+
+  .margin-toggle:checked + .sidenote,
+  .margin-toggle:checked + .marginnote {
+    display: block;
+    float: left;
+    left: 1rem;
+    clear: both;
+    width: 95%;
+    margin: 1rem 2.5%;
+    position: relative;
+  }
+}

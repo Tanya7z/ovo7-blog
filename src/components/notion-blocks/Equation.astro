@@ -7,11 +7,12 @@ export interface Props {
 }
 
 const { block } = Astro.props
+const equation = interfaces.must(block.Equation, 'Equation')
 ---
 
 <div
   class="equation"
-  set:html={katex.renderToString(block.Equation.Expression, {
+  set:html={katex.renderToString(equation.Expression, {
     throwOnError: false,
   })}
 />

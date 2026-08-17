@@ -28,12 +28,17 @@ import SyncedBlock from './notion-blocks/SyncedBlock.astro'
 import Toggle from './notion-blocks/Toggle.astro'
 import File from './notion-blocks/File.astro'
 import LinkToPage from './notion-blocks/LinkToPage.astro'
+import {
+  attachNotesToParagraphs,
+  groupByHeading1,
+  type Renderable,
+} from '../lib/tufte.ts'
 
 export interface Props {
   blocks: interfaces.Block[]
-  isRoot: boolean
-  level: number
-  headings: interfaces.Block[]
+  isRoot?: boolean
+  level?: number
+  headings?: interfaces.Block[]
 }
 
 const {
@@ -43,7 +48,7 @@ const {
   headings: rawHeadings = [],
 } = Astro.props
 
-const blocks = rawBlocks.reduce((arr, block: interfaces.Block, i: number) => {
+const blocks = rawBlocks.reduce<Renderable[]>((arr, block: interfaces.Block, i: number) => {
   const isBulletedListItem = block.Type === 'bulleted_list_item'
   const isNumberedListItem = block.Type === 'numbered_list_item'
   const isToDo = block.Type === 'to_do'
@@ -72,6 +77,7 @@ const blocks = rawBlocks.reduce((arr, block: interfaces.Block, i: number) => {
   const prevList = arr[arr.length - 1]
 
   if (
+    !prevList ||
     (isBulletedListItem && prevList.Type !== 'bulleted_list') ||
     (isNumberedListItem && prevList.Type !== 'numbered_list') ||
     (isToDo && prevList.Type !== 'to_do_list')
@@ -83,91 +89,124 @@ const blocks = rawBlocks.reduce((arr, block: interfaces.Block, i: number) => {
     return arr.concat(list)
   }
 
-  prevList.ListItems.push(block)
+  if ('ListItems' in prevList) {
+    prevList.ListItems.push(block)
+  }
 
   return arr
 }, [])
 
 let headings = rawHeadings
 if (isRoot) {
-  headings = blocks.filter((b: interfaces.Block) =>
-    ['heading_1', 'heading_2', 'heading_3'].includes(b.Type)
+  headings = blocks.filter(
+    (b): b is interfaces.Block =>
+      ['heading_1', 'heading_2', 'heading_3'].includes(b.Type)
   )
 }
 
 const bookmarkURLs = blocks
-  .filter((b: interfaces.Block) =>
+  .filter((b): b is interfaces.Block =>
     ['bookmark', 'link_preview', 'embed'].includes(b.Type)
   )
-  .map((b: interfaces.Block) => {
-    const urlString = (b.Bookmark || b.LinkPreview || b.Embed).Url
+  .map((b) => {
+    const urlString = (b.Bookmark || b.LinkPreview || b.Embed)?.Url
+    if (!urlString) {
+      return undefined
+    }
 
-    let url: URL
     try {
-      url = new URL(urlString)
+      return new URL(urlString)
     } catch (err) {
       console.log(err)
+      return undefined
     }
-    return url
   })
-  .filter((url: URL) => url && !isTweetURL(url) && !isAmazonURL(url))
+  .filter((url): url is URL => !!url && !isTweetURL(url) && !isAmazonURL(url))
 
 const bookmarkURLMap = await buildURLToHTMLMap(bookmarkURLs)
+
+const { notesByParagraphId, consumedNoteIds } = attachNotesToParagraphs(blocks)
+const sectionGroups = isRoot ? groupByHeading1(blocks) : [blocks]
 ---
 
 {
-  blocks.map((block: interfaces.Block) => {
-    switch (block.Type) {
-      case 'paragraph':
-        return <Paragraph block={block} headings={headings} />
-      case 'heading_1':
-        return <Heading1 block={block} headings={headings} />
-      case 'heading_2':
-        return <Heading2 block={block} headings={headings} />
-      case 'heading_3':
-        return <Heading3 block={block} headings={headings} />
-      case 'table_of_contents':
-        return <TableOfContents block={block} headings={headings} />
-      case 'image':
-        return <Image block={block} />
-      case 'video':
-        return <Video block={block} />
-      case 'code':
-        return <Code block={block} />
-      case 'quote':
-        return <Quote block={block} headings={headings} />
-      case 'equation':
-        return <Equation block={block} />
-      case 'callout':
-        return <Callout block={block} headings={headings} />
-      case 'embed':
-        return <Embed block={block} urlMap={bookmarkURLMap} />
-      case 'bookmark':
-      case 'link_preview':
-        return <Bookmark block={block} urlMap={bookmarkURLMap} />
-      case 'divider':
-        return <Divider />
-      case 'table':
-        return <Table block={block} />
-      case 'column_list':
-        return <ColumnList block={block} headings={headings} />
-      case 'bulleted_list':
-        return <BulletedListItems block={block} headings={headings} />
-      case 'numbered_list':
-        return (
-          <NumberedListItems block={block} level={level} headings={headings} />
-        )
-      case 'to_do_list':
-        return <ToDo block={block} headings={headings} />
-      case 'synced_block':
-        return <SyncedBlock block={block} headings={headings} />
-      case 'toggle':
-        return <Toggle block={block} headings={headings} />
-      case 'file':
-        return <File block={block} />
-      case 'link_to_page':
-        return <LinkToPage block={block} />
-    }
-    return null
+  sectionGroups.map((group) => {
+    const inner = group.map((item) => {
+      if ('ListItems' in item) {
+        switch (item.Type) {
+          case 'bulleted_list':
+            return <BulletedListItems block={item} headings={headings} />
+          case 'numbered_list':
+            return (
+              <NumberedListItems
+                block={item}
+                level={level}
+                headings={headings}
+              />
+            )
+          case 'to_do_list':
+            return <ToDo block={item} headings={headings} />
+          default:
+            return null
+        }
+      }
+
+      const block = item
+      if (consumedNoteIds.has(block.Id)) {
+        return null
+      }
+
+      switch (block.Type) {
+        case 'paragraph':
+          return (
+            <Paragraph
+              block={block}
+              headings={headings}
+              trailingNotes={notesByParagraphId.get(block.Id) ?? []}
+            />
+          )
+        case 'heading_1':
+          return <Heading1 block={block} headings={headings} />
+        case 'heading_2':
+          return <Heading2 block={block} headings={headings} />
+        case 'heading_3':
+          return <Heading3 block={block} headings={headings} />
+        case 'table_of_contents':
+          return <TableOfContents block={block} headings={headings} />
+        case 'image':
+          return <Image block={block} />
+        case 'video':
+          return <Video block={block} />
+        case 'code':
+          return <Code block={block} />
+        case 'quote':
+          return <Quote block={block} headings={headings} />
+        case 'equation':
+          return <Equation block={block} />
+        case 'callout':
+          return <Callout block={block} headings={headings} />
+        case 'embed':
+          return <Embed block={block} urlMap={bookmarkURLMap} />
+        case 'bookmark':
+        case 'link_preview':
+          return <Bookmark block={block} urlMap={bookmarkURLMap} />
+        case 'divider':
+          return <Divider />
+        case 'table':
+          return <Table block={block} />
+        case 'column_list':
+          return <ColumnList block={block} headings={headings} />
+        case 'synced_block':
+          return <SyncedBlock block={block} headings={headings} />
+        case 'toggle':
+          return <Toggle block={block} headings={headings} />
+        case 'file':
+          return <File block={block} />
+        case 'link_to_page':
+          return <LinkToPage block={block} />
+      }
+      return null
+    })
+    return isRoot ? <section>{inner}</section> : inner
   })
 }

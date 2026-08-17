@@ -9,15 +9,16 @@ export default (): AstroIntegration => ({
 
       await Promise.all(
         posts.map((post) => {
-          if (!post.FeaturedImage || !post.FeaturedImage.Url) {
+          const image = post.Cover?.Url ? post.Cover : post.FeaturedImage
+          if (!image || !image.Url) {
             return Promise.resolve()
           }
 
           let url!: URL
           try {
-            url = new URL(post.FeaturedImage.Url)
+            url = new URL(image.Url)
           } catch {
-            console.log('Invalid FeaturedImage URL: ', post.FeaturedImage?.Url)
+            console.log('Invalid cover image URL: ', image.Url)
             return Promise.resolve()
           }
 

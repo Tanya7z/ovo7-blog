@@ -1,33 +1,66 @@
 ---
-import { RichText } from '../../lib/interfaces.ts'
+import type { RichText } from '../../lib/interfaces.ts'
+import type { FigureLayout } from '../../lib/tufte.ts'
 
 export interface Props {
   richTexts: RichText[]
+  layout?: FigureLayout
 }
 
-const { richTexts } = Astro.props
+const { richTexts, layout = 'column' } = Astro.props
+const text = richTexts
+  .map((rt) => rt.Text?.Content ?? rt.PlainText ?? '')
+  .join('')
 ---
 
 {
-  richTexts.length > 0 && richTexts[0].Text.Content && (
-    <div class="caption">
-      <div>{richTexts[0].Text.Content}</div>
+  text.length > 0 && (
+    <div class:list={['caption', `caption-${layout}`]}>
+      {text}
     </div>
   )
 }
 
 <style>
   .caption {
-    display: flex;
-    margin-top: 0.3rem;
-    font-size: 0.9rem;
-    color: var(--accents-3);
+    font-size: 1.1rem;
+    line-height: 1.4;
+    color: var(--muted);
     white-space: pre-wrap;
     word-break: break-word;
-    line-height: 1.4;
   }
-  .caption > div {
-    flex-grow: 1;
-    width: 0;
+
+  /* 正文栏图：图注浮入右侧留白 */
+  .caption-column {
+    float: right;
+    clear: right;
+    margin-top: 0.3rem;
+    margin-right: -60%;
+    width: 50%;
+  }
+
+  /* 旁注图：图注跟在图下，不再二次浮动 */
+  .caption-margin {
+    float: none;
+    width: 100%;
+    margin: 0;
+  }
+
+  .caption-fullwidth {
+    float: right;
+    clear: right;
+    margin-top: 0.4rem;
+    margin-right: 0;
+    width: 50%;
+  }
+
+  @media (max-width: 760px) {
+    .caption-column,
+    .caption-fullwidth {
+      float: none;
+      width: 100%;
+      margin-right: 0;
+      font-size: 1rem;
+    }
   }
 </style>

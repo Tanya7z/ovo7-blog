@@ -7,8 +7,9 @@ export interface Props {
 }
 
 const { block } = Astro.props
+const linkToPage = interfaces.must(block.LinkToPage, 'LinkToPage')
 ---
 
 <p>
-  <Mention pageId={block.LinkToPage.PageId} />
+  <Mention pageId={linkToPage.PageId} />
 </p>

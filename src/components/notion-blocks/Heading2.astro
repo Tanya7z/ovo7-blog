@@ -10,51 +10,40 @@ export interface Props {
 }
 
 const { block, headings } = Astro.props
-
-const id = buildHeadingId(block.Heading2)
+const heading2 = interfaces.must(block.Heading2, 'Heading2')
+const id = buildHeadingId(heading2)
 ---
 
 {
-  block.Heading2.IsToggleable ? (
+  heading2.IsToggleable ? (
     <details class="toggle">
       <summary>
         <a href={`#${id}`} id={id}>
-          <h4>
-            {block.Heading2.RichTexts.map((richText: interfaces.RichText) => (
+          <h3>
+            {heading2.RichTexts.map((richText: interfaces.RichText) => (
               <RichText richText={richText} />
             ))}
-          </h4>
+          </h3>
         </a>
       </summary>
       <div>
-        {block.Heading2.Children && (
-          <NotionBlocks blocks={block.Heading2.Children} headings={headings} />
+        {heading2.Children && (
+          <NotionBlocks blocks={heading2.Children} headings={headings} />
         )}
       </div>
     </details>
   ) : (
     <a href={`#${id}`} id={id}>
-      <h4>
-        {block.Heading2.RichTexts.map((richText: interfaces.RichText) => (
+      <h3>
+        {heading2.RichTexts.map((richText: interfaces.RichText) => (
           <RichText richText={richText} />
         ))}
-      </h4>
+      </h3>
     </a>
   )
 }
 
 <style>
-  h4 {
-    margin: 1em 0 0.3em;
-    color: var(--fg);
-    font-size: 1.5rem;
-  }
-  @media (max-width: 640px) {
-    h4 {
-      font-size: 1.2rem;
-    }
-  }
-
   .toggle {
     margin: 1.6rem 0 0;
   }
@@ -72,7 +61,7 @@ const id = buildHeadingId(block.Heading2)
     display: inline;
   }
 
-  .toggle > summary > a > h4 {
+  .toggle > summary > a > h3 {
     display: inline;
   }
 

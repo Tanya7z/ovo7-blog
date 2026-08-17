@@ -6,7 +6,7 @@ import NotionBlocks from '../NotionBlocks.astro'
 import '../../styles/notion-color.css'
 
 export interface Props {
-  block: interfaces.Block
+  block: interfaces.List
   headings: interfaces.Block[]
 }
 
@@ -16,11 +16,13 @@ const { block, headings } = Astro.props
 <div class="to-do">
   {
     block.ListItems.filter((b: interfaces.Block) => b.Type === 'to_do').map(
-      (b: interfaces.Block) => (
-        <div class={snakeToKebab(b.ToDo.Color)}>
-          <input type="checkbox" checked={b.ToDo.Checked} disabled />
-          {b.ToDo.RichTexts.map((richText: interfaces.RichText) => {
-            if (b.ToDo.Checked) {
+      (b: interfaces.Block) => {
+        const todo = interfaces.must(b.ToDo, 'ToDo')
+        return (
+        <div class={snakeToKebab(todo.Color)}>
+          <input type="checkbox" checked={todo.Checked} disabled />
+          {todo.RichTexts.map((richText: interfaces.RichText) => {
+            if (todo.Checked) {
               return (
                 <s>
                   <RichText richText={richText} />
@@ -29,21 +31,21 @@ const { block, headings } = Astro.props
             }
             return <RichText richText={richText} />
           })}
-          {b.HasChildren && (
-            <NotionBlocks blocks={b.ToDo.Children} headings={headings} />
+          {b.HasChildren && todo.Children && (
+            <NotionBlocks blocks={todo.Children} headings={headings} />
           )}
         </div>
-      )
+        )
+      }
     )
   }
 </div>
 
 <style>
   .to-do {
-    color: #222;
+    color: var(--ink);
     font-weight: 400;
-    font-size: 1rem;
-    line-height: 1.8rem;
+    line-height: 2rem;
     padding-inline-start: 1rem;
   }
   .to-do > div {

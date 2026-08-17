@@ -1,0 +1,138 @@
+---
+import fs from 'node:fs'
+import type { Sticker } from '../lib/interfaces.ts'
+import {
+  filePath,
+  getDateStr,
+  getStaticFilePath,
+} from '../lib/blog-helpers.ts'
+import { getImageSize } from '../lib/image-size.ts'
+import { resolveNotionFilename } from '../lib/notion/media-file.ts'
+import Tape from './Tape.astro'
+import '../styles/sticker.css'
+
+export interface Props {
+  sticker: Sticker
+}
+
+const { sticker } = Astro.props
+
+/**
+ * 三种来源：站内静态文件（mock）、Notion 托管文件（构建期已落地）、外链图片。
+ *
+ * Notion 会把 GIF 错存成 .jpg 并标成 image/jpeg；本地已落地时优先走
+ * public/notion（扩展名已按魔数改回 .gif），开发态直连 Notion 时浏览器
+ * 也可能靠魔数播放，但不保证。
+ */
+function resolveImage(): string {
+  const image = sticker.Image
+  if (!image?.Url) {
+    return ''
+  }
+  if (image.Url.startsWith('/')) {
+    return getStaticFilePath(image.Url)
+  }
+  if (image.Type !== 'file') {
+    return image.Url
+  }
+
+  try {
+    const parsed = new URL(image.Url)
+    const [dir, rawName] = parsed.pathname.split('/').slice(-2)
+    const filename = resolveNotionFilename(dir, decodeURIComponent(rawName))
+    const disk = `./public/notion/${dir}/${filename}`
+    if (!import.meta.env.DEV || fs.existsSync(disk)) {
+      return filePath(parsed)
+    }
+  } catch {
+    // 解析失败时退回 Notion 原链
+  }
+
+  return image.Url
+}
+
+const image = resolveImage()
+
+// 贴多大跟着原图走：以长边为准，开平方压一下差距。
+// 不压的话 2560px 的照片会比 240px 的小图章大十倍，纸面全被它占满；
+// 压完之后仍是「原图大的贴得大」，只是差距收在约 3.5 倍以内。
+const FIT_MIN_REM = 3.6
+const FIT_MAX_REM = 13
+const FIT_DIVISOR = 3.9
+
+const size = await getImageSize(sticker.Image?.Url || '')
+const fitRem = size
+  ? Math.min(
+      FIT_MAX_REM,
+      Math.max(
+        FIT_MIN_REM,
+        Math.sqrt(Math.max(size.width, size.height)) / FIT_DIVISOR
+      )
+    )
+  : null
+
+// 读不到尺寸（开发模式图片还没落地）时不写 --sticker-fit，退回按锚点封顶。
+// 缩放倍数：Notion「缩放倍数」数字属性；未填 / 非法值按 1 处理，钳到 0.25～3。
+const rawScale = sticker.Scale
+const scale =
+  typeof rawScale === 'number' && Number.isFinite(rawScale) && rawScale > 0
+    ? Math.min(3, Math.max(0.25, rawScale))
+    : 1
+
+const styles = [
+  sticker.Rotation === null ? '' : `--rotate: ${sticker.Rotation}deg`,
+  fitRem === null ? '' : `--sticker-fit: ${fitRem.toFixed(2)}rem`,
+  scale === 1 ? '' : `--sticker-scale: ${scale}`,
+].filter(Boolean)
+const style = styles.length > 0 ? styles.join('; ') : undefined
+
+// 复用 getDateStr 的时区处理，再换成中文读法，读起来才像一句话
+function friendlyDate(iso: string): string {
+  const [year, month, day] = getDateStr(iso).split('-')
+  return `${year} 年 ${Number(month)} 月 ${Number(day)} 日`
+}
+
+const tip = sticker.Created
+  ? `这张图是在 ${friendlyDate(sticker.Created)} 贴上去的`
+  : ''
+const tipId = `sticker-tip-${sticker.PageId}`
+---
+
+{
+  image && (
+    <li
+      class="sticker"
+      style={style}
+      data-locked-rotate={sticker.Rotation === null ? undefined : ''}
+    >
+      {/* tabindex 让触屏点一下也能触发 :focus-within，不用写 JS */}
+      <figure
+        class:list={['polaroid', { tippable: !!tip }]}
+        tabindex={tip ? 0 : undefined}
+        aria-describedby={tip ? tipId : undefined}
+      >
+        <Tape peelable />
+        {/* 带上原始宽高，浏览器好提前占位，图片加载完不会把版面顶一下。
+            贴画图是构建期由 NotionMediaDownloader 落到 public/notion/ 下的，
+            astro:assets 处理不了 public 里的文件，所以这里只能用原生 img；
+            data-image-component 是 Astro 自己给开发者工具栏留的标记，
+            用它关掉那条「换成 Image 组件」的误报，不影响产物。 */}
+        <img
+          src={image}
+          alt={sticker.Name}
+          width={size?.width}
+          height={size?.height}
+          loading="lazy"
+          decoding="async"
+          data-image-component="true"
+        />
+        {sticker.Caption && <figcaption>{sticker.Caption}</figcaption>}
+        {tip && (
+          <span class="sticker-tip" id={tipId} role="tooltip">
+            {tip}
+          </span>
+        )}
+      </figure>
+    </li>
+  )
+}

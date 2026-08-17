@@ -1,0 +1,231 @@
+---
+/**
+ * ClientRouter 换页时的全屏纸色遮罩 + 居中进度条。
+ * 挂在 body 末尾，不参与页面 swap（无 transition 属性时默认保留）。
+ */
+---
+
+<div
+  id="nav-transition"
+  class="nav-transition"
+  transition:persist="nav-transition"
+  hidden
+  aria-hidden="true"
+  role="status"
+  aria-live="polite"
+  aria-busy="false"
+>
+  <div class="nav-transition__panel">
+    <div
+      class="nav-transition__track"
+      role="progressbar"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+      aria-label="页面加载中"
+    >
+      <div class="nav-transition__bar"></div>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .nav-transition {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    place-items: center;
+    background: var(--paper);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+
+  .nav-transition.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .nav-transition.is-leaving {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .nav-transition__panel {
+    width: min(42vw, 280px);
+  }
+
+  .nav-transition__track {
+    height: 2px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--ink) 12%, transparent);
+  }
+
+  .nav-transition__bar {
+    width: 100%;
+    height: 100%;
+    background: var(--ink);
+    transform: scaleX(0);
+    transform-origin: left center;
+    will-change: transform;
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav-transition,
+    .nav-transition__bar {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  type NavPhase = 'idle' | 'loading' | 'finishing'
+
+  declare global {
+    interface Window {
+      __ovo7NavTransitionBound?: boolean
+    }
+  }
+
+  // ClientRouter 可能重复执行组件脚本；状态与监听只初始化一次
+  if (!window.__ovo7NavTransitionBound) {
+    window.__ovo7NavTransitionBound = true
+
+    let phase: NavPhase = 'idle'
+    let trickleTimer: number | null = null
+    let hideTimer: number | null = null
+    let safetyTimer: number | null = null
+    let progress = 0
+
+    const SAFETY_MS = 15000
+
+    const reduceMotion = () =>
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    const el = () => document.getElementById('nav-transition')
+    const track = () =>
+      el()?.querySelector<HTMLElement>('.nav-transition__track') ?? null
+    const bar = () =>
+      el()?.querySelector<HTMLElement>('.nav-transition__bar') ?? null
+
+    const clearTrickle = () => {
+      if (trickleTimer != null) {
+        window.clearTimeout(trickleTimer)
+        trickleTimer = null
+      }
+    }
+
+    const clearHide = () => {
+      if (hideTimer != null) {
+        window.clearTimeout(hideTimer)
+        hideTimer = null
+      }
+    }
+
+    const clearSafety = () => {
+      if (safetyTimer != null) {
+        window.clearTimeout(safetyTimer)
+        safetyTimer = null
+      }
+    }
+
+    const setProgress = (value: number, immediate = false) => {
+      progress = Math.max(0, Math.min(100, value))
+      const node = bar()
+      const meter = track()
+      if (!node || !meter) return
+
+      if (immediate || reduceMotion()) {
+        const prev = node.style.transition
+        node.style.transition = 'none'
+        node.style.transform = `scaleX(${progress / 100})`
+        // 强制回流后再恢复过渡，避免下一帧被吞掉
+        void node.offsetWidth
+        node.style.transition = prev
+      } else {
+        node.style.transform = `scaleX(${progress / 100})`
+      }
+
+      meter.setAttribute('aria-valuenow', String(Math.round(progress)))
+    }
+
+    const scheduleTrickle = () => {
+      clearTrickle()
+      if (phase !== 'loading' || reduceMotion()) return
+
+      const remaining = 86 - progress
+      if (remaining <= 0.5) return
+
+      const step = Math.max(0.6, remaining * (0.08 + Math.random() * 0.1))
+      const delay = 180 + Math.random() * 220
+
+      trickleTimer = window.setTimeout(() => {
+        if (phase !== 'loading') return
+        setProgress(progress + step)
+        scheduleTrickle()
+      }, delay)
+    }
+
+    const show = () => {
+      const root = el()
+      if (!root) return
+
+      clearHide()
+      clearTrickle()
+      clearSafety()
+      phase = 'loading'
+
+      root.hidden = false
+      root.classList.remove('is-leaving')
+      root.setAttribute('aria-hidden', 'false')
+      root.setAttribute('aria-busy', 'true')
+
+      setProgress(0, true)
+      // 下一帧再抬透明度与进度，保证 fade-in 可见
+      requestAnimationFrame(() => {
+        root.classList.add('is-visible')
+        setProgress(reduceMotion() ? 70 : 18)
+        scheduleTrickle()
+      })
+
+      // 页面 SSR/下载卡住时也不要永久挡死交互
+      safetyTimer = window.setTimeout(() => {
+        if (phase === 'loading') hide()
+      }, SAFETY_MS)
+    }
+
+    const hide = () => {
+      const root = el()
+      if (!root || phase === 'idle') return
+
+      clearTrickle()
+      clearSafety()
+      phase = 'finishing'
+      setProgress(100)
+
+      const fadeMs = reduceMotion() ? 0 : 280
+      const holdMs = reduceMotion() ? 0 : 160
+
+      clearHide()
+      hideTimer = window.setTimeout(() => {
+        root.classList.add('is-leaving')
+        root.classList.remove('is-visible')
+        root.setAttribute('aria-busy', 'false')
+
+        hideTimer = window.setTimeout(() => {
+          root.hidden = true
+          root.classList.remove('is-leaving')
+          root.setAttribute('aria-hidden', 'true')
+          setProgress(0, true)
+          phase = 'idle'
+          hideTimer = null
+        }, fadeMs)
+      }, holdMs)
+    }
+
+    document.addEventListener('astro:before-preparation', show)
+    document.addEventListener('astro:page-load', hide)
+  }
+</script>

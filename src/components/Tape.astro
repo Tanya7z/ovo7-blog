@@ -1,0 +1,23 @@
+---
+/**
+ * 和纸胶带。原先是 .taped::before 伪元素，但伪元素接不到点击，
+ * 想「撕下来」就必须是真实元素，于是抽成组件，样式仍只有 .tape 一处。
+ */
+export interface Props {
+  /**
+   * 可撕：渲染成按钮，能点也能键盘聚焦。
+   * 探索页那一百多张卡片只作装饰，全做成按钮会把 Tab 顺序淹掉。
+   */
+  peelable?: boolean
+}
+
+const { peelable = false } = Astro.props
+---
+
+{
+  peelable ? (
+    <button class="tape" type="button" aria-label="撕下胶带" />
+  ) : (
+    <span class="tape" aria-hidden="true" />
+  )
+}

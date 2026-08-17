@@ -7,6 +7,7 @@ import { pipeline } from 'node:stream/promises'
 import sharp from 'sharp'
 import {
   DATABASE_ID,
+  DATA_SOURCE_ID,
   NOTION_DATE_PROPERTY,
   NOTION_EXCERPT_PROPERTY,
   NOTION_FEATURED_IMAGE_PROPERTY,
@@ -14,7 +15,6 @@ import {
   NOTION_FILTER_TYPE,
   NOTION_FILTER_VALUE,
   NOTION_API_SECRET,
-  NOTION_RANK_PROPERTY,
   NOTION_SLUG_PROPERTY,
   NOTION_SORT_PROPERTY,
   NOTION_TAGS_PROPERTY,
@@ -25,6 +25,13 @@ import {
   SITE_TITLE,
   USE_MOCK_CONTENT,
 } from '../../server-constants'
+import { extractExcerptParagraphs } from '../blog-helpers'
+import { buildPublishFilter } from './query-config.mjs'
+import {
+  notionLocalFileReady,
+  sniffImageExt,
+  withRealImageExt,
+} from './media-file'
 import { getMockBlocks, MOCK_DATABASE, MOCK_POSTS } from '../mock-content'
 import type {
   Annotation,
@@ -77,108 +84,65 @@ const client = new Client({
 let postsCache: Post[] | null = null
 let dbCache: Database | null = null
 
+/** 进程内块树缓存：dev 下同一篇文章反复 SSR 时避免每次串行打 Notion */
+const blocksInflight = new Map<string, Promise<Block[]>>()
+
 const numberOfRetry = 2
+
+async function _attachExcerptFromBody(post: Post): Promise<Post> {
+  const blocks = await getAllBlocksByBlockId(post.PageId)
+  const paragraphs = extractExcerptParagraphs(blocks)
+  if (paragraphs.length === 0) {
+    return post
+  }
+  return {
+    ...post,
+    Excerpt: paragraphs.join('\n\n'),
+  }
+}
 
 export async function getAllPosts(): Promise<Post[]> {
   if (USE_MOCK_CONTENT) {
-    return MOCK_POSTS
+    return Promise.all(MOCK_POSTS.map(_attachExcerptFromBody))
   }
 
   if (postsCache !== null) {
     return Promise.resolve(postsCache)
   }
 
-  const dbResponse = (await client.databases.retrieve({
-    database_id: DATABASE_ID,
-  })) as responses.RetrieveDatabaseResponse
-  if (!dbResponse || dbResponse.in_trash) {
-    console.error(
-      'The database either does not exist or is in trash. Please restore it to fetch posts.'
-    )
-    return []
-  }
-
-  const dataSouceId = dbResponse.data_sources?.[0]?.id
+  const dataSouceId = await _resolveDataSourceId()
   if (!dataSouceId) {
     console.error(
-      'No data source found for the database. Please add a data source to fetch posts.'
+      'No data source found for 仓库. Share the 仓库 database with the integration and set DATA_SOURCE_ID or DATABASE_ID.'
     )
     return []
-  }
-
-  const params: requestParams.QueryDataSource = {
-    data_source_id: dataSouceId,
-    page_size: 100,
   }
 
   const publishFilter = _buildPublishFilter()
-  if (publishFilter) {
-    params.filter = publishFilter
-  }
-  if (NOTION_SORT_PROPERTY) {
-    params.sorts = [
-      {
-        property: NOTION_SORT_PROPERTY,
-        direction: 'descending',
-      },
-    ]
-  }
-
-  let results: responses.PageObject[] = []
-  while (true) {
-    const res = await retry(
-      async (bail) => {
-        try {
-          return (await client.dataSources.query(
-            params as any // eslint-disable-line @typescript-eslint/no-explicit-any
-          )) as responses.QueryDataSourceResponse
-        } catch (error: unknown) {
-          if (error instanceof APIResponseError) {
-            if (error.status && error.status >= 400 && error.status < 500) {
-              bail(error)
-            }
-          }
-          throw error
+  const results = await queryAllPages(dataSouceId, {
+    ...(publishFilter ? { filter: publishFilter } : {}),
+    ...(NOTION_SORT_PROPERTY
+      ? {
+          sorts: [
+            {
+              property: NOTION_SORT_PROPERTY,
+              direction: 'descending' as const,
+            },
+          ],
         }
-      },
-      {
-        retries: numberOfRetry,
-      }
-    )
+      : {}),
+  })
 
-    results = results.concat(res.results)
-
-    if (!res.has_more) {
-      break
-    }
-
-    params['start_cursor'] = res.next_cursor as string
-  }
-
-  postsCache = results
+  const builtPosts = results
     .filter((pageObject) => _validPageObject(pageObject))
     .map((pageObject) => _buildPost(pageObject))
+  postsCache = await Promise.all(builtPosts.map(_attachExcerptFromBody))
   return postsCache
 }
 
 export async function getPosts(pageSize = 10): Promise<Post[]> {
   const allPosts = await getAllPosts()
   return allPosts.slice(0, pageSize)
-}
-
-export async function getRankedPosts(pageSize = 10): Promise<Post[]> {
-  const allPosts = await getAllPosts()
-  return allPosts
-    .filter((post) => !!post.Rank)
-    .sort((a, b) => {
-      if (a.Rank > b.Rank) {
-        return -1
-      } else if (a.Rank === b.Rank) {
-        return 0
-      }
-      return 1
-    })
-    .slice(0, pageSize)
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
@@ -261,105 +225,125 @@ export async function getAllBlocksByBlockId(blockId: string): Promise<Block[]> {
     return getMockBlocks(blockId)
   }
 
-  let results: responses.BlockObject[] = []
+  const inflight = blocksInflight.get(blockId)
+  if (inflight) {
+    return inflight
+  }
 
-  if (fs.existsSync(`tmp/${blockId}.json`)) {
-    results = JSON.parse(fs.readFileSync(`tmp/${blockId}.json`, 'utf-8'))
-  } else {
-    const params: requestParams.RetrieveBlockChildren = {
-      block_id: blockId,
-    }
+  const load = (async (): Promise<Block[]> => {
+    let results: responses.BlockObject[] = []
 
-    while (true) {
-      const res = await retry(
-        async (bail) => {
-          try {
-            return (await client.blocks.children.list(
-              params as any // eslint-disable-line @typescript-eslint/no-explicit-any
-            )) as responses.RetrieveBlockChildrenResponse
-          } catch (error: unknown) {
-            if (error instanceof APIResponseError) {
-              if (error.status && error.status >= 400 && error.status < 500) {
-                bail(error)
-              }
-            }
-            throw error
-          }
-        },
-        {
-          retries: numberOfRetry,
-        }
-      )
-
-      results = results.concat(res.results)
-
-      if (!res.has_more) {
-        break
+    if (fs.existsSync(`tmp/${blockId}.json`)) {
+      results = JSON.parse(fs.readFileSync(`tmp/${blockId}.json`, 'utf-8'))
+    } else {
+      const params: requestParams.RetrieveBlockChildren = {
+        block_id: blockId,
       }
 
-      params['start_cursor'] = res.next_cursor as string
+      while (true) {
+        const res = await retry(
+          async (bail) => {
+            try {
+              return (await client.blocks.children.list(
+                params as any // eslint-disable-line @typescript-eslint/no-explicit-any
+              )) as responses.RetrieveBlockChildrenResponse
+            } catch (error: unknown) {
+              if (error instanceof APIResponseError) {
+                if (error.status && error.status >= 400 && error.status < 500) {
+                  bail(error)
+                }
+              }
+              throw error
+            }
+          },
+          {
+            retries: numberOfRetry,
+          }
+        )
+
+        results = results.concat(res.results)
+
+        if (!res.has_more) {
+          break
+        }
+
+        params['start_cursor'] = res.next_cursor as string
+      }
     }
+
+    const allBlocks = results.map((blockObject) => _buildBlock(blockObject))
+
+    // 表格 / 分栏 / 嵌套子块并行拉取，避免一篇长文串行等十几秒
+    await Promise.all(
+      allBlocks.map(async (block) => {
+        if (block.Type === 'table' && block.Table) {
+          block.Table.Rows = await _getTableRows(block.Id)
+        } else if (block.Type === 'column_list' && block.ColumnList) {
+          block.ColumnList.Columns = await _getColumns(block.Id)
+        } else if (
+          block.Type === 'bulleted_list_item' &&
+          block.BulletedListItem &&
+          block.HasChildren
+        ) {
+          block.BulletedListItem.Children = await getAllBlocksByBlockId(block.Id)
+        } else if (
+          block.Type === 'numbered_list_item' &&
+          block.NumberedListItem &&
+          block.HasChildren
+        ) {
+          block.NumberedListItem.Children = await getAllBlocksByBlockId(block.Id)
+        } else if (block.Type === 'to_do' && block.ToDo && block.HasChildren) {
+          block.ToDo.Children = await getAllBlocksByBlockId(block.Id)
+        } else if (block.Type === 'synced_block' && block.SyncedBlock) {
+          block.SyncedBlock.Children = await _getSyncedBlockChildren(block)
+        } else if (block.Type === 'toggle' && block.Toggle) {
+          block.Toggle.Children = await getAllBlocksByBlockId(block.Id)
+        } else if (
+          block.Type === 'paragraph' &&
+          block.Paragraph &&
+          block.HasChildren
+        ) {
+          block.Paragraph.Children = await getAllBlocksByBlockId(block.Id)
+        } else if (
+          block.Type === 'heading_1' &&
+          block.Heading1 &&
+          block.HasChildren
+        ) {
+          block.Heading1.Children = await getAllBlocksByBlockId(block.Id)
+        } else if (
+          block.Type === 'heading_2' &&
+          block.Heading2 &&
+          block.HasChildren
+        ) {
+          block.Heading2.Children = await getAllBlocksByBlockId(block.Id)
+        } else if (
+          block.Type === 'heading_3' &&
+          block.Heading3 &&
+          block.HasChildren
+        ) {
+          block.Heading3.Children = await getAllBlocksByBlockId(block.Id)
+        } else if (block.Type === 'quote' && block.Quote && block.HasChildren) {
+          block.Quote.Children = await getAllBlocksByBlockId(block.Id)
+        } else if (
+          block.Type === 'callout' &&
+          block.Callout &&
+          block.HasChildren
+        ) {
+          block.Callout.Children = await getAllBlocksByBlockId(block.Id)
+        }
+      })
+    )
+
+    return allBlocks
+  })()
+
+  blocksInflight.set(blockId, load)
+  try {
+    return await load
+  } catch (error) {
+    blocksInflight.delete(blockId)
+    throw error
   }
-
-  const allBlocks = results.map((blockObject) => _buildBlock(blockObject))
-
-  for (let i = 0; i < allBlocks.length; i++) {
-    const block = allBlocks[i]
-
-    if (block.Type === 'table' && block.Table) {
-      block.Table.Rows = await _getTableRows(block.Id)
-    } else if (block.Type === 'column_list' && block.ColumnList) {
-      block.ColumnList.Columns = await _getColumns(block.Id)
-    } else if (
-      block.Type === 'bulleted_list_item' &&
-      block.BulletedListItem &&
-      block.HasChildren
-    ) {
-      block.BulletedListItem.Children = await getAllBlocksByBlockId(block.Id)
-    } else if (
-      block.Type === 'numbered_list_item' &&
-      block.NumberedListItem &&
-      block.HasChildren
-    ) {
-      block.NumberedListItem.Children = await getAllBlocksByBlockId(block.Id)
-    } else if (block.Type === 'to_do' && block.ToDo && block.HasChildren) {
-      block.ToDo.Children = await getAllBlocksByBlockId(block.Id)
-    } else if (block.Type === 'synced_block' && block.SyncedBlock) {
-      block.SyncedBlock.Children = await _getSyncedBlockChildren(block)
-    } else if (block.Type === 'toggle' && block.Toggle) {
-      block.Toggle.Children = await getAllBlocksByBlockId(block.Id)
-    } else if (
-      block.Type === 'paragraph' &&
-      block.Paragraph &&
-      block.HasChildren
-    ) {
-      block.Paragraph.Children = await getAllBlocksByBlockId(block.Id)
-    } else if (
-      block.Type === 'heading_1' &&
-      block.Heading1 &&
-      block.HasChildren
-    ) {
-      block.Heading1.Children = await getAllBlocksByBlockId(block.Id)
-    } else if (
-      block.Type === 'heading_2' &&
-      block.Heading2 &&
-      block.HasChildren
-    ) {
-      block.Heading2.Children = await getAllBlocksByBlockId(block.Id)
-    } else if (
-      block.Type === 'heading_3' &&
-      block.Heading3 &&
-      block.HasChildren
-    ) {
-      block.Heading3.Children = await getAllBlocksByBlockId(block.Id)
-    } else if (block.Type === 'quote' && block.Quote && block.HasChildren) {
-      block.Quote.Children = await getAllBlocksByBlockId(block.Id)
-    } else if (block.Type === 'callout' && block.Callout && block.HasChildren) {
-      block.Callout.Children = await getAllBlocksByBlockId(block.Id)
-    }
-  }
-
-  return allBlocks
 }
 
 export async function getBlock(blockId: string): Promise<Block> {
@@ -409,16 +393,20 @@ export async function getAllTags(): Promise<SelectProperty[]> {
 }
 
 export async function downloadFile(url: URL) {
+  // dev/SSR 每次进文都会走到这里；本地已有就别再打 Notion/S3
+  if (notionLocalFileReady(url)) {
+    return
+  }
+
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
-  let res!: Response
+  let buf!: Buffer
   try {
-    res = await fetch(url.toString(), {
+    const res = await fetch(url.toString(), {
       method: 'GET',
       signal: controller.signal,
     })
-    clearTimeout(timeoutId)
 
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`)
@@ -427,9 +415,15 @@ export async function downloadFile(url: URL) {
     if (!res.body) {
       throw new Error('Response body is null')
     }
+
+    // 超时必须盖住整包读取：旧逻辑在拿到 headers 后就 clearTimeout，
+    // 大 GIF / 慢 S3 会在 arrayBuffer 阶段无限挂起。
+    buf = Buffer.from(await res.arrayBuffer())
   } catch (err) {
     console.log(err)
-    return Promise.resolve()
+    return
+  } finally {
+    clearTimeout(timeoutId)
   }
 
   const dir = './public/notion/' + url.pathname.split('/').slice(-2)[0]
@@ -437,23 +431,27 @@ export async function downloadFile(url: URL) {
     fs.mkdirSync(dir, { recursive: true })
   }
 
-  const filename = decodeURIComponent(url.pathname.split('/').slice(-1)[0])
+  const filename = withRealImageExt(
+    decodeURIComponent(url.pathname.split('/').slice(-1)[0]),
+    buf
+  )
   const filepath = `${dir}/${filename}`
+  const realExt = sniffImageExt(buf)
 
-  const writeStream = createWriteStream(filepath)
-  const rotate = sharp().rotate()
-
-  let stream = Readable.fromWeb(res.body as any) // eslint-disable-line @typescript-eslint/no-explicit-any
-
-  if (res.headers.get('content-type') === 'image/jpeg') {
-    stream = stream.pipe(rotate)
-  }
   try {
-    return pipeline(stream, new ExifTransformer(), writeStream)
+    // 只有真 JPEG 才需要按 EXIF 纠正朝向；GIF/PNG/WebP 原样落地
+    if (realExt === 'jpg') {
+      await pipeline(
+        Readable.from(buf),
+        sharp().rotate(),
+        new ExifTransformer(),
+        createWriteStream(filepath)
+      )
+    } else {
+      await fs.promises.writeFile(filepath, buf)
+    }
   } catch (err) {
     console.log(err)
-    writeStream.end()
-    return Promise.resolve()
   }
 }
 
@@ -466,31 +464,8 @@ export async function getDatabase(): Promise<Database> {
     return Promise.resolve(dbCache)
   }
 
-  const params: requestParams.RetrieveDatabase = {
-    database_id: DATABASE_ID,
-  }
-
-  const res = await retry(
-    async (bail) => {
-      try {
-        return (await client.databases.retrieve(
-          params as any // eslint-disable-line @typescript-eslint/no-explicit-any
-        )) as responses.RetrieveDatabaseResponse
-      } catch (error: unknown) {
-        if (error instanceof APIResponseError) {
-          if (error.status && error.status >= 400 && error.status < 500) {
-            bail(error)
-          }
-        }
-        throw error
-      }
-    },
-    {
-      retries: numberOfRetry,
-    }
-  )
-
-  const dataSource = await _getDataSource(res.data_sources?.[0]?.id || '')
+  const dataSourceId = await _resolveDataSourceId()
+  const dataSource = await _getDataSource(dataSourceId)
 
   let icon: FileObject | Emoji | null = null
   if (dataSource.icon) {
@@ -517,24 +492,140 @@ export async function getDatabase(): Promise<Database> {
 
   let cover: FileObject | null = null
   if (dataSource.cover) {
-    cover = {
-      Type: dataSource.cover.type,
-      Url: dataSource.cover.external?.url || dataSource.cover?.file?.url || '',
+    if (dataSource.cover.type === 'external' && 'external' in dataSource.cover) {
+      cover = {
+        Type: dataSource.cover.type,
+        Url: dataSource.cover.external?.url || '',
+      }
+    } else if (dataSource.cover.type === 'file' && 'file' in dataSource.cover) {
+      cover = {
+        Type: dataSource.cover.type,
+        Url: dataSource.cover.file?.url || '',
+      }
     }
   }
 
   const database: Database = {
     Title:
-      SITE_TITLE || res.title.map((richText) => richText.plain_text).join(''),
+      SITE_TITLE ||
+      dataSource.title?.map((richText) => richText.plain_text).join('') || '',
     Description:
       SITE_DESCRIPTION ||
-      res.description.map((richText) => richText.plain_text).join(''),
+      dataSource.description?.map((richText) => richText.plain_text).join('') ||
+      '',
     Icon: icon,
     Cover: cover,
   }
 
   dbCache = database
   return database
+}
+
+/**
+ * 通用：把「data source id / database id」解析成可查询的 data source id。
+ * 文章、贴画、探索共用这一处解析逻辑。
+ *
+ * preferName 用于多数据源的库（例如「探索」库同时挂着 探索 与 仓库 两个
+ * data source），按名字挑选而不是盲取第一个。
+ */
+export async function resolveDataSourceId(
+  dataSourceId: string,
+  databaseId: string,
+  preferName = ''
+): Promise<string> {
+  if (dataSourceId) {
+    return dataSourceId
+  }
+
+  if (!databaseId) {
+    return ''
+  }
+
+  try {
+    const dbResponse = (await client.databases.retrieve({
+      database_id: databaseId,
+    })) as responses.RetrieveDatabaseResponse
+    if (dbResponse && !dbResponse.in_trash) {
+      const sources = dbResponse.data_sources || []
+      if (preferName) {
+        const matched = sources.find(
+          (source) => (source as { name?: string }).name === preferName
+        )
+        if (matched?.id) {
+          return matched.id
+        }
+      }
+      const nestedId = sources[0]?.id
+      if (nestedId) {
+        return nestedId
+      }
+    }
+  } catch (error: unknown) {
+    if (!(error instanceof APIResponseError) || error.status !== 404) {
+      throw error
+    }
+  }
+
+  // 传入的 id 也可能本身就是 data source
+  await _getDataSource(databaseId)
+  return databaseId
+}
+
+/**
+ * 通用：把某个 data source 的全部页面翻完（含重试）。
+ * 抽出来供文章 / 贴画 / 探索共用，避免各写一套分页与重试。
+ */
+export async function queryAllPages(
+  dataSourceId: string,
+  options: Pick<requestParams.QueryDataSource, 'filter' | 'sorts'> = {}
+): Promise<responses.PageObject[]> {
+  const params: requestParams.QueryDataSource = {
+    data_source_id: dataSourceId,
+    page_size: 100,
+  }
+  if (options.filter) {
+    params.filter = options.filter
+  }
+  if (options.sorts && options.sorts.length > 0) {
+    params.sorts = options.sorts
+  }
+
+  let results: responses.PageObject[] = []
+  while (true) {
+    const res = await retry(
+      async (bail) => {
+        try {
+          return (await client.dataSources.query(
+            params as any // eslint-disable-line @typescript-eslint/no-explicit-any
+          )) as responses.QueryDataSourceResponse
+        } catch (error: unknown) {
+          if (error instanceof APIResponseError) {
+            if (error.status && error.status >= 400 && error.status < 500) {
+              bail(error)
+            }
+          }
+          throw error
+        }
+      },
+      {
+        retries: numberOfRetry,
+      }
+    )
+
+    results = results.concat(res.results)
+
+    if (!res.has_more) {
+      break
+    }
+
+    params['start_cursor'] = res.next_cursor as string
+  }
+
+  return results
+}
+
+async function _resolveDataSourceId(): Promise<string> {
+  return resolveDataSourceId(DATA_SOURCE_ID, DATABASE_ID)
 }
 
 export async function _getDataSource(
@@ -1013,9 +1104,6 @@ function _buildPost(pageObject: responses.PageObject): Post {
   const featuredImageProperty = NOTION_FEATURED_IMAGE_PROPERTY
     ? prop[NOTION_FEATURED_IMAGE_PROPERTY]
     : undefined
-  const rankProperty = NOTION_RANK_PROPERTY
-    ? prop[NOTION_RANK_PROPERTY]
-    : undefined
   const title = titleProperty?.title
     ? titleProperty.title.map((richText) => richText.plain_text).join('')
     : ''
@@ -1040,9 +1128,17 @@ function _buildPost(pageObject: responses.PageObject): Post {
 
   let cover: FileObject | null = null
   if (pageObject.cover) {
-    cover = {
-      Type: pageObject.cover.type,
-      Url: pageObject.cover.external?.url || pageObject.cover.file?.url || '',
+    if (pageObject.cover.type === 'external' && 'external' in pageObject.cover) {
+      cover = {
+        Type: pageObject.cover.type,
+        Url: pageObject.cover.external?.url || '',
+      }
+    } else if (pageObject.cover.type === 'file' && 'file' in pageObject.cover) {
+      cover = {
+        Type: pageObject.cover.type,
+        Url: pageObject.cover.file?.url || '',
+        ExpiryTime: pageObject.cover.file?.expiry_time,
+      }
     }
   }
 
@@ -1083,40 +1179,18 @@ function _buildPost(pageObject: responses.PageObject): Post {
             .join('')
         : '',
     FeaturedImage: featuredImage,
-    Rank: rankProperty?.number || 0,
   }
 
   return post
 }
 
+// 过滤规则的构造委托给 query-config.cjs 的单一实现，缓存脚本共用同一份逻辑
 function _buildPublishFilter(): requestParams.PropertyFilterObject | null {
-  if (!NOTION_FILTER_PROPERTY || !NOTION_FILTER_VALUE) {
-    return null
-  }
-
-  if (NOTION_FILTER_TYPE === 'checkbox') {
-    return {
-      property: NOTION_FILTER_PROPERTY,
-      checkbox: { equals: NOTION_FILTER_VALUE === 'true' },
-    }
-  }
-  if (NOTION_FILTER_TYPE === 'status') {
-    return {
-      property: NOTION_FILTER_PROPERTY,
-      status: { equals: NOTION_FILTER_VALUE },
-    }
-  }
-  if (NOTION_FILTER_TYPE === 'multi_select') {
-    return {
-      property: NOTION_FILTER_PROPERTY,
-      multi_select: { contains: NOTION_FILTER_VALUE },
-    }
-  }
-
-  return {
-    property: NOTION_FILTER_PROPERTY,
-    select: { equals: NOTION_FILTER_VALUE },
-  }
+  return buildPublishFilter(
+    NOTION_FILTER_PROPERTY,
+    NOTION_FILTER_VALUE,
+    NOTION_FILTER_TYPE
+  ) as requestParams.PropertyFilterObject | null
 }
 
 function _createSlug(title: string, pageId: string): string {

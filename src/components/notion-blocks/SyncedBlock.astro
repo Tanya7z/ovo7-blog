@@ -8,6 +8,7 @@ export interface Props {
 }
 
 const { block, headings } = Astro.props
+const synced = interfaces.must(block.SyncedBlock, 'SyncedBlock')
 ---
 
-<NotionBlocks blocks={block.SyncedBlock.Children} headings={headings} />
+<NotionBlocks blocks={synced.Children ?? []} headings={headings} />

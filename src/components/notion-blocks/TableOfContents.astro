@@ -10,6 +10,7 @@ export interface Props {
 }
 
 const { block, headings } = Astro.props
+const toc = interfaces.must(block.TableOfContents, 'TableOfContents')
 ---
 
 <div class="table-of-contents">
@@ -17,6 +18,7 @@ const { block, headings } = Astro.props
     headings.map((headingBlock: interfaces.Block) => {
       const heading =
         headingBlock.Heading1 || headingBlock.Heading2 || headingBlock.Heading3
+      if (!heading) return null
 
       let indentClass = ''
       if (headingBlock.Type === 'heading_2') {
@@ -29,7 +31,7 @@ const { block, headings } = Astro.props
         <a
           href={`#${buildHeadingId(heading)}`}
           class={`table-of-contents ${snakeToKebab(
-            block.TableOfContents.Color
+            toc.Color
           )} ${indentClass}`}
         >
           {heading.RichTexts.map(
@@ -49,10 +51,12 @@ const { block, headings } = Astro.props
     line-height: 1.8rem;
     font-size: 0.9rem;
     font-weight: 500;
+  }
+  .table-of-contents > a:hover {
     text-decoration: underline;
   }
   .table-of-contents > a:hover {
-    background: rgba(241, 241, 239, 1) !important;
+    background: var(--soft) !important;
   }
   .table-of-contents > a.indent-1 {
     padding-left: 1.5rem;

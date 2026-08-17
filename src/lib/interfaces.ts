@@ -15,7 +15,37 @@ export interface Post {
   Tags: SelectProperty[]
   Excerpt: string
   FeaturedImage: FileObject | null
-  Rank: number
+}
+
+/** 贴画：按「集合」注册，新增集合只需在 Notion 加选项。 */
+export interface Sticker {
+  PageId: string
+  Name: string
+  Collection: string
+  Caption: string
+  Rotation: number | null
+  /**
+   * 相对默认大小的倍数（Notion「缩放倍数」）。
+   * null / 未填 = 1；0.5 一半，2 两倍。渲染时会钳到合理区间。
+   */
+  Scale: number | null
+  Order: number
+  Image: FileObject | null
+  /** Notion 页面的创建时间（ISO 字符串），用来显示「这张图是什么时候贴上去的」 */
+  Created: string
+}
+
+/** 探索条目：阅读 / 动画 / 电影等收藏，是清单不是文章，因此不生成详情页。 */
+export interface ExploreEntry {
+  PageId: string
+  Name: string
+  Type: string
+  Status: string
+  Score: number | null
+  Author: string
+  Place: string
+  Date: string
+  Cover: FileObject | null
 }
 
 export interface Block {
@@ -120,6 +150,22 @@ export interface FileObject {
   Type: string
   Url: string
   ExpiryTime?: string
+}
+
+/** 断言可选值存在；调用方已按 Type 分支后再读取 payload。 */
+export function must<T>(value: T | null | undefined, label: string): T {
+  if (value == null) {
+    throw new Error(`缺少 ${label}`)
+  }
+  return value
+}
+
+export function isEmojiIcon(icon: FileObject | Emoji): icon is Emoji {
+  return icon.Type === 'emoji'
+}
+
+export function isExternalIcon(icon: FileObject | Emoji): icon is FileObject {
+  return icon.Type === 'external'
 }
 
 export interface External {

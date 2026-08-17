@@ -2,6 +2,7 @@
 import { ENABLE_LIGHTBOX } from '../../server-constants.ts'
 import * as interfaces from '../../lib/interfaces'
 import { filePath } from '../../lib/blog-helpers'
+import { parseFigureCaption } from '../../lib/tufte'
 import Caption from './Caption.astro'
 
 export interface Props {
@@ -9,45 +10,64 @@ export interface Props {
 }
 
 const { block } = Astro.props
+const imageBlock = interfaces.must(block.Image, 'Image')
+const { layout, displayTexts } = parseFigureCaption(imageBlock.Caption)
+const alt =
+  displayTexts
+    .map((rt) => rt.Text?.Content ?? rt.PlainText ?? '')
+    .join('')
+    .trim() || '文章配图'
 
 let image = ''
-if (block.Image.External) {
-  image = block.Image.External.Url
-} else if (block.Image.File) {
-  image = filePath(new URL(block.Image.File.Url))
+if (imageBlock.External) {
+  image = imageBlock.External.Url
+} else if (imageBlock.File) {
+  image = filePath(new URL(imageBlock.File.Url))
 }
+
+const toggleId = `mn-img-${block.Id}`
 ---
 
-<figure class="image">
-  {
-    image && (
-      <div>
-        <div>
-          {ENABLE_LIGHTBOX ? (
+{
+  layout === 'margin' ? (
+    <>
+      <label class="margin-toggle" for={toggleId}>
+        &#8853;
+      </label>
+      <input type="checkbox" id={toggleId} class="margin-toggle" />
+      <span class="marginnote">
+        {image &&
+          (ENABLE_LIGHTBOX ? (
             <a data-fslightbox href={image} data-type="image">
-              <img src={image} alt="Image in a image block" loading="lazy" />
+              <img src={image} alt={alt} loading="lazy" />
             </a>
           ) : (
-            <img src={image} alt="Image in a image block" loading="lazy" />
-          )}
-        </div>
-        <Caption richTexts={block.Image.Caption} />
-      </div>
-    )
-  }
-</figure>
+            <img src={image} alt={alt} loading="lazy" />
+          ))}
+        <Caption richTexts={displayTexts} layout="margin" />
+      </span>
+    </>
+  ) : (
+    <figure class:list={['image', layout === 'fullwidth' && 'fullwidth']}>
+      {image &&
+        (ENABLE_LIGHTBOX ? (
+          <a data-fslightbox href={image} data-type="image">
+            <img src={image} alt={alt} loading="lazy" />
+          </a>
+        ) : (
+          <img src={image} alt={alt} loading="lazy" />
+        ))}
+      <Caption richTexts={displayTexts} layout={layout} />
+    </figure>
+  )
+}
 
 <style>
   .image {
-    display: flex;
-    margin: 0.2rem auto 0;
+    display: block;
+    margin: 1.6rem 0;
   }
-  .image > div {
-    margin: 0 auto;
-  }
-  .image > div > div {
-  }
-  .image > div > div img {
+  .image img {
     display: block;
     max-width: 100%;
   }

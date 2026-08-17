@@ -1,6 +1,7 @@
 ---
 import * as interfaces from '../../lib/interfaces.ts'
 import { snakeToKebab } from '../../lib/style-helpers.ts'
+import { splitQuoteAttribution } from '../../lib/tufte.ts'
 import RichText from './RichText.astro'
 import NotionBlocks from '../NotionBlocks.astro'
 import '../../styles/notion-color.css'
@@ -11,27 +12,38 @@ export interface Props {
 }
 
 const { block, headings } = Astro.props
+const quote = interfaces.must(block.Quote, 'Quote')
+const { body, attribution } = splitQuoteAttribution(quote.RichTexts)
+const isEpigraph = attribution !== null
 ---
 
-<blockquote class={snakeToKebab(block.Quote.Color)}>
-  {
-    block.Quote.RichTexts.map((richText: interfaces.RichText) => (
-      <RichText richText={richText} />
-    ))
-  }
-  {
-    block.Quote.Children && (
-      <NotionBlocks blocks={block.Quote.Children} headings={headings} />
-    )
-  }
-</blockquote>
+{
+  isEpigraph ? (
+    <div class="epigraph">
+      <blockquote class={snakeToKebab(quote.Color)}>
+        {body.map((richText: interfaces.RichText) => (
+          <RichText richText={richText} />
+        ))}
+        <footer>{attribution}</footer>
+        {quote.Children && (
+          <NotionBlocks blocks={quote.Children} headings={headings} />
+        )}
+      </blockquote>
+    </div>
+  ) : (
+    <blockquote class={snakeToKebab(quote.Color)}>
+      {quote.RichTexts.map((richText: interfaces.RichText) => (
+        <RichText richText={richText} />
+      ))}
+      {quote.Children && (
+        <NotionBlocks blocks={quote.Children} headings={headings} />
+      )}
+    </blockquote>
+  )
+}
 
 <style>
   blockquote {
-    margin: 0.6rem 0;
-    padding: 0 0.9rem;
-    border-left: 3px solid var(--fg);
-    font-size: 1rem;
-    line-height: 1.8rem;
+    margin: 1.5rem 0;
   }
 </style>

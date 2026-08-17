@@ -22,10 +22,11 @@ export interface Props {
 }
 
 const { block, urlMap } = Astro.props
+const embed = interfaces.must(block.Embed, 'Embed')
 
-let url: URL
+let url: URL | undefined
 try {
-  url = new URL(block.Embed.Url)
+  url = new URL(embed.Url)
 } catch (err) {
   console.log(err)
 }

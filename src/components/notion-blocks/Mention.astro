@@ -1,5 +1,5 @@
 ---
-import { Post } from '../../lib/interfaces.ts'
+import { isEmojiIcon, isExternalIcon, type Post } from '../../lib/interfaces.ts'
 import { getPostByPageId } from '../../lib/notion/client'
 import { getPostLink } from '../../lib/blog-helpers.ts'
 import '../../styles/notion-color.css'
@@ -11,7 +11,7 @@ export interface Props {
 
 const { pageId } = Astro.props
 
-let post: Post = null
+let post: Post | null = null
 if (pageId) {
   post = await getPostByPageId(pageId)
 }
@@ -22,9 +22,9 @@ if (pageId) {
     <a href={getPostLink(post.Slug)} class="link">
       <>
         <span class="icon">
-          {post.Icon && post.Icon.Type === 'emoji' ? (
+          {post.Icon && isEmojiIcon(post.Icon) ? (
             post.Icon.Emoji
-          ) : post.Icon && post.Icon.Type === 'external' ? (
+          ) : post.Icon && isExternalIcon(post.Icon) ? (
             <img
               src={post.Icon.Url}
               class="notion-icon"
@@ -78,10 +78,15 @@ if (pageId) {
   span.text {
     color: var(--fg);
     font-weight: 500;
+  }
+  a.link:hover span.text,
+  a.link:focus-visible span.text {
     text-decoration: underline;
   }
   span.text.not-found {
     font-weight: normal;
+  }
+  a.link:hover span.text.not-found {
     text-decoration: none;
   }
 </style>

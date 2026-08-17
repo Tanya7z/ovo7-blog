@@ -6,7 +6,7 @@ import NotionBlocks from '../NotionBlocks.astro'
 import '../../styles/notion-color.css'
 
 export interface Props {
-  block: interfaces.Block
+  block: interfaces.List
   headings: interfaces.Block[]
 }
 
@@ -18,11 +18,11 @@ const { block, headings } = Astro.props
     block.ListItems.filter(
       (b: interfaces.Block) => b.Type === 'bulleted_list_item'
     ).map((b: interfaces.Block) => (
-      <li class={snakeToKebab(b.BulletedListItem.Color)}>
-        {b.BulletedListItem.RichTexts.map((richText: interfaces.RichText) => (
+      <li class={snakeToKebab(interfaces.must(b.BulletedListItem, 'BulletedListItem').Color)}>
+        {interfaces.must(b.BulletedListItem, 'BulletedListItem').RichTexts.map((richText: interfaces.RichText) => (
           <RichText richText={richText} />
         ))}
-        {b.HasChildren && (
+        {b.HasChildren && b.BulletedListItem?.Children && (
           <NotionBlocks
             blocks={b.BulletedListItem.Children}
             headings={headings}
@@ -32,9 +32,3 @@ const { block, headings } = Astro.props
     ))
   }
 </ul>
-
-<style>
-  ul {
-    font-size: 1rem;
-  }
-</style>

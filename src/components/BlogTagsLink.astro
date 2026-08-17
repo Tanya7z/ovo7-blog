@@ -2,10 +2,9 @@
 import type { SelectProperty } from '../lib/interfaces.ts'
 import { getTagLink } from '../lib/blog-helpers.ts'
 import NoContents from './NoContents.astro'
-import '../styles/notion-color.css'
 
 export interface Props {
-  heading: string
+  heading?: string
   tags: SelectProperty[]
 }
 
@@ -13,7 +12,7 @@ const { heading, tags } = Astro.props
 ---
 
 <div class="blog-tags-link">
-  <h2>{heading}</h2>
+  {heading && <h2>{heading}</h2>}
   {
     tags.length === 0 ? (
       <NoContents contents={tags} />
@@ -21,9 +20,7 @@ const { heading, tags } = Astro.props
       <ul>
         {tags.map((tag: SelectProperty) => (
           <li>
-            <a href={getTagLink(tag.name)} class={`tag ${tag.color}`}>
-              {tag.name}
-            </a>
+            <a href={getTagLink(tag.name)}>{tag.name}</a>
           </li>
         ))}
       </ul>
@@ -32,44 +29,24 @@ const { heading, tags } = Astro.props
 </div>
 
 <style>
-  .blog-tags-link {
-  }
   .blog-tags-link h2 {
-    margin: 0;
-    padding: 0 4px;
+    margin: 0 0 0.6rem;
+    padding: 0;
     color: var(--muted);
-    font-size: 12px;
-    font-weight: 800;
-    text-transform: uppercase;
+    font-family: var(--font-display);
+    font-style: normal;
+    font-size: 1.3rem;
   }
   .blog-tags-link ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.1rem;
     list-style-type: none;
     padding: 0;
-    display: flex;
-    margin-top: 9px;
-    margin-block-end: 1rem;
-    flex-wrap: wrap;
-    gap: 7px;
+    margin: 0;
   }
   .blog-tags-link ul li {
-    position: relative;
-    padding: 0;
-    line-height: 1.2rem;
-    font-size: 13px;
-  }
-  .blog-tags-link ul li a {
-    min-width: 0;
-    display: inline-flex;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 4px 9px;
-    line-height: 1.2;
-    color: var(--muted);
-    background: var(--surface);
-  }
-  .blog-tags-link ul li a:hover {
-    border-color: #bdcbc2;
-    color: var(--green);
-    background: var(--soft-green);
+    font-size: 1.1rem;
+    line-height: 1.5;
   }
 </style>

@@ -1,30 +1,24 @@
 ---
 import * as interfaces from '../../lib/interfaces.ts'
 import {
-  getPosts,
   getAllPosts,
-  getRankedPosts,
   getPostBySlug,
-  getPostsByTag,
   getBlock,
-  getAllTags,
   getAllBlocksByBlockId,
   downloadFile,
 } from '../../lib/notion/client.ts'
 import {
   getPostLink,
+  getDateStr,
   filePath,
   extractTargetBlocks,
 } from '../../lib/blog-helpers.ts'
+import { notionLocalFileReady } from '../../lib/notion/media-file.ts'
 import Layout from '../../layouts/Layout.astro'
-import PostDate from '../../components/PostDate.astro'
+import PostCover from '../../components/PostCover.astro'
 import PostTags from '../../components/PostTags.astro'
-import PostTitle from '../../components/PostTitle.astro'
 import PostBody from '../../components/PostBody.astro'
 import PostRelativeLink from '../../components/PostRelativeLink.astro'
-import BlogPostsLink from '../../components/BlogPostsLink.astro'
-import BlogTagsLink from '../../components/BlogTagsLink.astro'
-import styles from '../../styles/blog.module.css'
 
 export async function getStaticPaths() {
   const posts = await getAllPosts()
@@ -32,21 +26,19 @@ export async function getStaticPaths() {
 }
 
 const { slug } = Astro.params
+if (!slug) {
+  throw new Error('Missing slug')
+}
 
 const post = await getPostBySlug(slug)
 if (!post) {
   throw new Error(`Post not found. slug: ${slug}`)
 }
 
-const [blocks, allPosts, rankedPosts, recentPosts, tags, postsHavingSameTag] =
-  await Promise.all([
-    getAllBlocksByBlockId(post.PageId),
-    getAllPosts(),
-    getRankedPosts(),
-    getPosts(5),
-    getAllTags(),
-    getPostsByTag(post.Tags[0]?.name, 6),
-  ])
+const [blocks, allPosts] = await Promise.all([
+  getAllBlocksByBlockId(post.PageId),
+  getAllPosts(),
+])
 
 const fileAtacchedBlocks = extractTargetBlocks('image', blocks)
   .concat(extractTargetBlocks('file', blocks))
@@ -58,29 +50,37 @@ const fileAtacchedBlocks = extractTargetBlocks('image', blocks)
     return imageOrFile && imageOrFile.File && imageOrFile.File.Url
   })
 
-// Download files
+// 落地 Notion 托管附件；本地已有则跳过 refresh + 下载（dev 热路径）
 await Promise.all(
-  fileAtacchedBlocks
-    .map(async (block) => {
-      const expiryTime = (block.Image || block.File).File.ExpiryTime
-      if (Date.parse(expiryTime) > Date.now()) {
-        return Promise.resolve(block)
-      }
-      return getBlock(block.Id)
-    })
-    .map((promise) =>
-      promise.then((block) => {
-        let url!: URL
-        try {
-          url = new URL((block.Image || block.File).File.Url)
-        } catch {
-          console.log('Invalid file URL: ', (block.Image || block.File)?.File?.Url)
-          return Promise.reject()
+  fileAtacchedBlocks.map(async (block) => {
+    const cachedUrl = (block.Image || block.File)?.File?.Url
+    if (cachedUrl) {
+      try {
+        if (notionLocalFileReady(new URL(cachedUrl))) {
+          return
         }
-        return Promise.resolve(url)
-      })
-    )
-    .map((promise) => promise.then(downloadFile))
+      } catch {
+        // URL 非法时继续走下方 refresh / 下载逻辑
+      }
+    }
+
+    const expiryTime = (block.Image || block.File)?.File?.ExpiryTime
+    const fresh =
+      expiryTime && Date.parse(expiryTime) > Date.now()
+        ? block
+        : await getBlock(block.Id)
+
+    const fileUrl = (fresh.Image || fresh.File)?.File?.Url
+    if (!fileUrl) {
+      return
+    }
+
+    try {
+      await downloadFile(new URL(fileUrl))
+    } catch {
+      console.log('Invalid file URL: ', fileUrl)
+    }
+  })
 )
 
 const currentPostIndex = allPosts.findIndex((post) => post.Slug === slug)
@@ -88,8 +88,10 @@ const prevPost = allPosts[currentPostIndex + 1]
 const nextPost = allPosts[currentPostIndex - 1]
 
 let ogImage = ''
-if (post.FeaturedImage && post.FeaturedImage.Url) {
-  ogImage = new URL(filePath(new URL(post.FeaturedImage.Url)), Astro.site)
+const coverSource = post.Cover?.Url ? post.Cover : post.FeaturedImage
+const hasCover = Boolean(coverSource?.Url)
+if (hasCover && coverSource?.Url) {
+  ogImage = new URL(filePath(new URL(coverSource.Url)), Astro.site).toString()
 }
 ---
 
@@ -98,32 +100,59 @@ if (post.FeaturedImage && post.FeaturedImage.Url) {
   description={post.Excerpt}
   path={getPostLink(post.Slug)}
   ogImage={ogImage}
+  showCover={hasCover}
 >
-  <div slot="main" class={styles.main}>
-    <div class={styles.post}>
-      <PostDate post={post} />
-      <PostTags post={post} />
-      <PostTitle post={post} enableLink={false} />
-      <PostBody blocks={blocks} />
-      <PostTags post={post} />
+  {hasCover && <PostCover slot="cover" post={post} />}
+  <div slot="main">
+    <article class="post">
+      <h1 class="post-title">
+        {
+          post.Icon && interfaces.isEmojiIcon(post.Icon) ? (
+            <span class="title-icon">{post.Icon.Emoji}</span>
+          ) : post.Icon && interfaces.isExternalIcon(post.Icon) ? (
+            <img class="title-icon" src={post.Icon.Url} alt="" />
+          ) : null
+        }
+        {post.Title}
+      </h1>
+      {
+        post.Date && (
+          <p class="subtitle">
+            <time class="numeral" datetime={post.Date}>
+              {getDateStr(post.Date)}
+            </time>
+          </p>
+        )
+      }
 
-      <footer>
+      <PostBody blocks={blocks} />
+
+      <footer class="post-footer">
+        <PostTags post={post} enableLink={true} />
         <PostRelativeLink prevPost={prevPost} nextPost={nextPost} />
       </footer>
-    </div>
-  </div>
-
-  <div slot="aside" class="aside">
-    <BlogPostsLink
-      heading="同类文章"
-      posts={postsHavingSameTag.filter(
-        (p: interfaces.Post) => p.Slug !== post.Slug
-      )}
-    />
-    <BlogPostsLink heading="推荐阅读" posts={rankedPosts} />
-    <BlogPostsLink heading="最近更新" posts={recentPosts} />
-    <div id="categories">
-      <BlogTagsLink heading="文章分类" tags={tags} />
-    </div>
+    </article>
   </div>
 </Layout>
+
+<style>
+  .post-title .title-icon {
+    margin-right: 0.3em;
+  }
+  .post-title img.title-icon {
+    width: 1.1em;
+    height: 1.1em;
+    vertical-align: -0.15em;
+  }
+  .post-footer {
+    width: 55%;
+    margin-top: 3rem;
+    border-top: 1px solid var(--line);
+    padding-top: 1.4rem;
+  }
+  @media (max-width: 760px) {
+    .post-footer {
+      width: 100%;
+    }
+  }
+</style>

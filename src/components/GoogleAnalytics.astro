@@ -15,9 +15,24 @@ const { trackingId = '' } = Astro.props
         src={`https://www.googletagmanager.com/gtag/js?id=${trackingId}`}
       />
       <script is:inline define:vars={{ trackingId }}>
-        window.dataLayer = window.dataLayer || []; function gtag()
-        {dataLayer.push(arguments)}
-        gtag('js', new Date()); gtag('config', trackingId);
+        window.dataLayer = window.dataLayer || []
+        function gtag() {
+          dataLayer.push(arguments)
+        }
+        gtag('js', new Date())
+        gtag('config', trackingId)
+
+        // 首屏已由上面的 config 记过；换页时再补 page_view
+        let isFirstPageLoad = true
+        document.addEventListener('astro:page-load', () => {
+          if (isFirstPageLoad) {
+            isFirstPageLoad = false
+            return
+          }
+          gtag('event', 'page_view', {
+            page_path: location.pathname + location.search,
+          })
+        })
       </script>
     </>
   )

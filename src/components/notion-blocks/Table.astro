@@ -7,18 +7,19 @@ export interface Props {
 }
 
 const { block } = Astro.props
+const table = interfaces.must(block.Table, 'Table')
 ---
 
 <div class="table">
   <table>
     <tbody>
       {
-        block.Table.Rows.map((tableRow: interfaces.TableRow, j: number) => (
+        table.Rows.map((tableRow: interfaces.TableRow, j: number) => (
           <tr>
             {tableRow.Cells.map((cell: interfaces.TableCell, i: number) => {
               if (
-                (block.Table.HasRowHeader && i === 0) ||
-                (block.Table.HasColumnHeader && j === 0)
+                (table.HasRowHeader && i === 0) ||
+                (table.HasColumnHeader && j === 0)
               ) {
                 return (
                   <th>
