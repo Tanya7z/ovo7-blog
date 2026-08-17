@@ -1,0 +1,75 @@
+---
+import type { SelectProperty } from '../lib/interfaces.ts'
+import { getTagLink } from '../lib/blog-helpers.ts'
+import NoContents from './NoContents.astro'
+import '../styles/notion-color.css'
+
+export interface Props {
+  heading: string
+  tags: SelectProperty[]
+}
+
+const { heading, tags } = Astro.props
+---
+
+<div class="blog-tags-link">
+  <h2>{heading}</h2>
+  {
+    tags.length === 0 ? (
+      <NoContents contents={tags} />
+    ) : (
+      <ul>
+        {tags.map((tag: SelectProperty) => (
+          <li>
+            <a href={getTagLink(tag.name)} class={`tag ${tag.color}`}>
+              {tag.name}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</div>
+
+<style>
+  .blog-tags-link {
+  }
+  .blog-tags-link h2 {
+    margin: 0;
+    padding: 0 4px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .blog-tags-link ul {
+    list-style-type: none;
+    padding: 0;
+    display: flex;
+    margin-top: 9px;
+    margin-block-end: 1rem;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .blog-tags-link ul li {
+    position: relative;
+    padding: 0;
+    line-height: 1.2rem;
+    font-size: 13px;
+  }
+  .blog-tags-link ul li a {
+    min-width: 0;
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 9px;
+    line-height: 1.2;
+    color: var(--muted);
+    background: var(--surface);
+  }
+  .blog-tags-link ul li a:hover {
+    border-color: #bdcbc2;
+    color: var(--green);
+    background: var(--soft-green);
+  }
+</style>

@@ -1,0 +1,35 @@
+---
+import { Post } from '../lib/interfaces.ts'
+import { getPostLink } from '../lib/blog-helpers.ts'
+
+export interface Props {
+  post: Post
+}
+
+const { post } = Astro.props
+---
+
+<div class="read-more-link">
+  <a href={getPostLink(post.Slug)}>阅读全文 <span aria-hidden="true">→</span></a>
+</div>
+
+<style>
+  .read-more-link {
+    margin-top: 10px;
+    color: var(--green);
+  }
+  .read-more-link a {
+    color: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 2rem;
+  }
+  .read-more-link a:hover {
+    color: var(--coral);
+  }
+  @media (max-width: 640px) {
+    .read-more-link a {
+      width: 50%;
+    }
+  }
+</style>

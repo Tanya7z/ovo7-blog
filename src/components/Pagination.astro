@@ -1,0 +1,72 @@
+---
+import { getPageLink } from '../lib/blog-helpers.ts'
+
+export interface Props {
+  currentPage: number
+  numberOfPages: number
+  tag: string
+}
+
+const { currentPage, numberOfPages, tag = '' } = Astro.props
+
+const isFirstPage = currentPage === 1
+const isLastPage = currentPage === numberOfPages
+
+const startPage = currentPage - 2 < 1 ? 1 : currentPage - 2
+const endPage =
+  currentPage + 2 > numberOfPages ? numberOfPages : currentPage + 2
+
+let pages = []
+for (let i = startPage; i <= endPage; i++) {
+  pages.push(i)
+}
+---
+
+<div class="pagination">
+  <a href={getPageLink(1, tag)} class={isFirstPage && 'inactive'} aria-label="第一页">←</a>
+  {
+    pages.map((p: number) => (
+      <a href={getPageLink(p, tag)} class={p === currentPage && 'inactive'}>
+        {p}
+      </a>
+    ))
+  }
+  <a href={getPageLink(numberOfPages, tag)} class={isLastPage && 'inactive'} aria-label="最后一页"
+    >→</a
+  >
+</div>
+
+<style>
+  .pagination {
+    display: flex;
+    width: 100%;
+    margin: 0 auto;
+    color: var(--fg);
+    justify-content: center;
+    align-items: center;
+  }
+  .pagination a {
+    display: block;
+    display: grid;
+    width: 38px;
+    height: 38px;
+    margin: 0 4px;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: inherit;
+    font-size: 0.85rem;
+    text-align: center;
+    text-decoration: none;
+    font-weight: 500;
+    line-height: 1;
+  }
+  .pagination a:hover:not(.inactive) {
+    background: var(--soft-green);
+  }
+  .pagination a.inactive {
+    color: #999;
+    text-decoration: none;
+  }
+</style>

@@ -1,0 +1,21 @@
+[Unit]
+Description=Build and publish blog.ovo7.cc from Notion
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ovo7blog
+Group=www-data
+WorkingDirectory=/opt/ovo7-blog
+EnvironmentFile=/etc/ovo7-blog.env
+Environment=NODE_OPTIONS=--max-old-space-size=1024
+Environment=PATH=/opt/ovo7-node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/ovo7-blog/deploy/sync-blog.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

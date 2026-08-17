@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh blog.ovo7.cc from Notion every ten minutes
+
+[Timer]
+OnBootSec=2min
+OnCalendar=*:0/10
+RandomizedDelaySec=45
+Persistent=true
+Unit=ovo7-blog-sync.service
+
+[Install]
+WantedBy=timers.target

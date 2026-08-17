@@ -1,0 +1,139 @@
+---
+import { NUMBER_OF_POSTS_PER_PAGE } from '../server-constants.ts'
+import {
+  getPosts,
+  getAllTags,
+  getNumberOfPages,
+} from '../lib/notion/client.ts'
+import Layout from '../layouts/Layout.astro'
+import NoContents from '../components/NoContents.astro'
+import PostDate from '../components/PostDate.astro'
+import PostTags from '../components/PostTags.astro'
+import PostTitle from '../components/PostTitle.astro'
+import PostFeaturedImage from '../components/PostFeaturedImage.astro'
+import PostExcerpt from '../components/PostExcerpt.astro'
+import ReadMoreLink from '../components/ReadMoreLink.astro'
+import Pagination from '../components/Pagination.astro'
+import BlogPostsLink from '../components/BlogPostsLink.astro'
+import BlogTagsLink from '../components/BlogTagsLink.astro'
+import styles from '../styles/blog.module.css'
+
+const [posts, tags, numberOfPages] = await Promise.all([
+  getPosts(NUMBER_OF_POSTS_PER_PAGE),
+  getAllTags(),
+  getNumberOfPages(),
+])
+---
+
+<Layout>
+  <div slot="main" class={styles.main}>
+    <header class="page-intro">
+      <p class="eyebrow">Notebook / 技术笔记</p>
+      <h1>把遇见的问题，认真记下来。</h1>
+      <p>代码、工具与偶尔冒出来的想法。最近共有 {posts.length} 篇文章。</p>
+    </header>
+
+    {
+      posts.length === 0 ? (
+        <NoContents contents={posts} />
+      ) : (
+        posts.map((post) => (
+          <article class={styles.post} key={post.Slug}>
+            <div class="post-meta">
+              <PostDate post={post} />
+              <PostTags post={post} />
+            </div>
+            <PostTitle post={post} />
+            <PostFeaturedImage post={post} />
+            <PostExcerpt post={post} />
+            <ReadMoreLink post={post} />
+          </article>
+        ))
+      )
+    }
+
+    <footer>
+      <Pagination currentPage={1} numberOfPages={numberOfPages} />
+    </footer>
+  </div>
+
+  <div slot="aside" class={styles.aside}>
+    <section class="profile-note">
+      <span aria-hidden="true">✦</span>
+      <p>七罪 / Tanya7z</p>
+      <a href="mailto:hi@ovo7.cc">hi@ovo7.cc</a>
+    </section>
+    <BlogPostsLink heading="最近更新" posts={posts.slice(0, 5)} />
+    <div id="categories">
+      <BlogTagsLink heading="文章分类" tags={tags} />
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .page-intro {
+    margin-bottom: 34px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 30px;
+  }
+
+  .page-intro .eyebrow {
+    margin: 0 0 10px;
+    color: var(--coral);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .page-intro h1 {
+    max-width: 620px;
+    margin: 0;
+    font-size: 32px;
+  }
+
+  .page-intro p:last-child {
+    max-width: 620px;
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .profile-note {
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+    padding: 0 4px 22px;
+  }
+
+  .profile-note > span {
+    color: var(--coral);
+    font-size: 22px;
+  }
+
+  .profile-note p {
+    margin: 6px 0 2px;
+    font-weight: 750;
+  }
+
+  .profile-note a {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  @media (max-width: 640px) {
+    .page-intro h1 {
+      font-size: 26px;
+    }
+
+    .post-meta {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 2px;
+    }
+  }
+</style>

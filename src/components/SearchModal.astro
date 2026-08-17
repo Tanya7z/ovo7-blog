@@ -1,0 +1,331 @@
+---
+import { Icon } from 'astro-icon/components'
+---
+
+<div
+  class="search-modal-container"
+  role="dialog"
+  aria-modal="true"
+  aria-label="搜索文章"
+  aria-hidden="true"
+>
+  <div class="overlay" data-close-search></div>
+
+  <div class="search-modal">
+    <div class="search-modal-header">
+      <span>搜索文章</span>
+      <button
+        class="search-close"
+        type="button"
+        data-close-search
+        aria-label="关闭搜索"
+        title="关闭搜索"
+      ><Icon name="octicon:x-24" /></button>
+    </div>
+    <div class="search-prompt">
+      <input
+        type="search"
+        placeholder="输入文章标题…"
+        aria-label="搜索关键词"
+        autocomplete="off"
+      />
+    </div>
+    <div class="search-result" aria-live="polite">
+      <ul>
+      </ul>
+      <p class="search-empty" hidden>没有找到匹配文章</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  div.search-modal-container {
+    display: none;
+  }
+
+  div.overlay {
+    z-index: 99;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(24, 30, 26, 0.48);
+    backdrop-filter: blur(4px);
+  }
+
+  div.search-modal {
+    z-index: 100;
+    position: fixed;
+    top: 12vh;
+    left: 50%;
+    width: min(640px, calc(100% - 32px));
+    transform: translateX(-50%);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background-color: var(--bg);
+    box-shadow: 0 24px 70px rgba(22, 30, 25, 0.2);
+  }
+  .search-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding: 12px 12px 10px 16px;
+    color: var(--fg);
+    font-size: 14px;
+    font-weight: 750;
+  }
+  .search-close {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius);
+    padding: 0;
+    background: transparent;
+    color: var(--muted);
+  }
+  .search-close:hover {
+    cursor: pointer;
+    background: var(--soft-green);
+    color: var(--green);
+  }
+  .search-close svg {
+    width: 17px;
+    height: 17px;
+  }
+  @media (max-width: 640px) {
+    div.search-modal {
+      top: 72px;
+    }
+  }
+
+  div.search-prompt {
+    margin: 0;
+    padding: 12px;
+  }
+  div.search-prompt input {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    background-color: var(--input-bg);
+    color: var(--fg);
+    font-size: 16px;
+    line-height: 1.6rem;
+  }
+
+  div.search-result {
+    border-top: 1px solid var(--hr-border);
+  }
+  div.search-result ul {
+    list-style: none;
+    margin: 0.3rem;
+    padding: 0;
+  }
+  .search-empty {
+    margin: 0;
+    padding: 14px 16px 18px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  div.search-result ul > :global(li) {
+  }
+  div.search-result ul > :global(li > a) {
+    display: block;
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius);
+  }
+  div.search-result ul > :global(li.selected > a) {
+    background-color: rgba(241, 241, 239, 1);
+  }
+
+  div.search-result :global(div.search-result-title) {
+    padding: 0.1rem 0;
+    color: var(--fg);
+    font-size: 1.1rem;
+    line-height: 1.2rem;
+    font-weight: bold;
+  }
+  div.search-result :global(div.search-result-description) {
+    margin: 0 0 0.1rem;
+    color: var(--fg);
+    font-size: 0.9rem;
+    line-height: 1.2rem;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    let feedItems = []
+    let fetched = false
+    let isOpen = false
+
+    const container = document.querySelector('.search-modal-container')
+    const input = document.querySelector('.search-prompt input')
+    const trigger = document.querySelector('.open-search-modal')
+    const resultList = document.querySelector('.search-result ul')
+    const emptyState = document.querySelector('.search-empty')
+
+    if (!container || !input || !trigger || !resultList || !emptyState) return
+
+    async function openModal() {
+      isOpen = true
+      container.style.display = 'block'
+      container.setAttribute('aria-hidden', 'false')
+      trigger.setAttribute('aria-expanded', 'true')
+      input.focus()
+
+      if (!fetched) {
+        try {
+          await fetchRSS()
+        } catch (error) {
+          console.error(error)
+          fetched = true
+        }
+      }
+      if (isOpen) searchAndRender()
+    }
+
+    function closeModal() {
+      isOpen = false
+      container.style.display = 'none'
+      container.setAttribute('aria-hidden', 'true')
+      trigger.setAttribute('aria-expanded', 'false')
+      trigger.focus()
+    }
+
+    function handleKeydown(event) {
+      if (!isOpen) return
+
+      if (event.keyCode === 13) {
+        select()
+      } else if (event.keyCode === 27) {
+        closeModal()
+      } else if (event.keyCode === 38) {
+        selectUp(event)
+      } else if (event.keyCode === 40) {
+        selectDown(event)
+      }
+    }
+
+    function select() {
+      const anchor = resultList.querySelector('li.selected a')
+      if (anchor) anchor.click()
+    }
+
+    function selectFirst() {
+      const first = resultList.firstElementChild
+      if (first) first.classList.add('selected')
+    }
+
+    function selectUp(event) {
+      event.preventDefault()
+      if (!resultList.children.length) return
+
+      const selected = resultList.querySelector('.selected')
+      if (selected) {
+        selected.classList.remove('selected')
+        ;(selected.previousElementSibling || resultList.lastElementChild).classList.add(
+          'selected'
+        )
+      } else {
+        resultList.lastElementChild.classList.add('selected')
+      }
+    }
+
+    function selectDown(event) {
+      event.preventDefault()
+      if (!resultList.children.length) return
+
+      const selected = resultList.querySelector('.selected')
+      if (selected) {
+        selected.classList.remove('selected')
+        ;(selected.nextElementSibling || resultList.firstElementChild).classList.add(
+          'selected'
+        )
+      } else {
+        resultList.firstElementChild.classList.add('selected')
+      }
+    }
+
+    function handleMouseover(event) {
+      const item = event.target.closest('li')
+      if (!item) return
+      Array.from(resultList.children).forEach((element) => {
+        element.classList.remove('selected')
+      })
+      item.classList.add('selected')
+    }
+
+    function searchAndRender() {
+      const text = input.value.trim()
+      renderResults(text ? search(text) : feedItems)
+      selectFirst()
+    }
+
+    function search(query) {
+      const normalizedQuery = query.toLocaleLowerCase()
+      return feedItems.filter((item) => {
+        return (
+          item.title.toLocaleLowerCase().includes(normalizedQuery) ||
+          item.description?.toLocaleLowerCase().includes(normalizedQuery)
+        )
+      })
+    }
+
+    function renderResults(results) {
+      resultList.innerHTML = ''
+      emptyState.hidden = results.length !== 0
+
+      results.forEach((item) => {
+        const li = document.createElement('li')
+        const anchor = document.createElement('a')
+        const title = document.createElement('div')
+        const description = document.createElement('div')
+
+        title.classList.add('search-result-title')
+        title.textContent = item.title
+        description.classList.add('search-result-description')
+        description.textContent = item.description || ''
+        anchor.href = item.link
+
+        li.addEventListener('mouseover', handleMouseover)
+        anchor.append(title, description)
+        li.appendChild(anchor)
+        resultList.appendChild(li)
+      })
+    }
+
+    async function fetchRSS() {
+      const url = new URL(location.href)
+      const port = url.port ? `:${url.port}` : ''
+      const res = await fetch(`${url.protocol}//${url.hostname}${port}/feed`)
+      if (!res.ok) throw new Error('Failed to fetch RSS feed')
+
+      const parser = new DOMParser()
+      const xml = parser.parseFromString(await res.text(), 'text/xml')
+      feedItems = Array.from(xml.getElementsByTagName('item')).map((item) => ({
+        title: item.getElementsByTagName('title')[0]?.textContent || '',
+        link: item.getElementsByTagName('link')[0]?.textContent || '#',
+        description:
+          item.getElementsByTagName('description')[0]?.textContent || '',
+        pubDate: item.getElementsByTagName('pubDate')[0]?.textContent || '',
+      }))
+      fetched = true
+    }
+
+    document.querySelectorAll('.open-search-modal').forEach((element) => {
+      element.addEventListener('click', openModal)
+    })
+    document.querySelectorAll('[data-close-search]').forEach((element) => {
+      element.addEventListener('click', closeModal)
+    })
+    input.addEventListener('input', searchAndRender)
+    trigger.setAttribute('aria-expanded', 'false')
+    document.addEventListener('keydown', handleKeydown)
+  })
+</script>
