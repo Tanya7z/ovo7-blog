@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { defineConfig } from 'astro/config';
 import icon from 'astro-icon';
 import { CUSTOM_DOMAIN, BASE_PATH } from './src/server-constants';
