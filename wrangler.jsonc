@@ -1,8 +1,15 @@
 {
   "name": "ovo7-blog",
   "compatibility_date": "2026-08-18",
+  "workers_dev": true,
   "assets": {
     "directory": "./dist",
     "not_found_handling": "404-page"
-  }
+  },
+  "routes": [
+    {
+      "pattern": "blog.ovo7.cc",
+      "custom_domain": true
+    }
+  ]
 }
