@@ -19,6 +19,11 @@ export const EXPLORE_DATA_SOURCE_ID =
   import.meta.env.EXPLORE_DATA_SOURCE_ID ||
   process.env.EXPLORE_DATA_SOURCE_ID ||
   ''
+// 「曲库」：全站常驻播放器的曲目，未配置时不渲染播放器
+export const MUSIC_DATABASE_ID =
+  import.meta.env.MUSIC_DATABASE_ID || process.env.MUSIC_DATABASE_ID || ''
+export const MUSIC_DATA_SOURCE_ID =
+  import.meta.env.MUSIC_DATA_SOURCE_ID || process.env.MUSIC_DATA_SOURCE_ID || ''
 
 export const SITE_TITLE =
   import.meta.env.SITE_TITLE || process.env.SITE_TITLE || '七罪的手账本'
@@ -34,7 +39,11 @@ export const USE_MOCK_CONTENT =
 
 // 映射 Notion「仓库」字段到博客内容模型
 // 默认属性名统一取自 query-config.cjs（单一真源），避免与缓存脚本各写一套
-import { PROPERTY_DEFAULTS, STICKER_DEFAULTS } from './lib/notion/query-config.mjs'
+import {
+  MUSIC_DEFAULTS,
+  PROPERTY_DEFAULTS,
+  STICKER_DEFAULTS,
+} from './lib/notion/query-config.mjs'
 
 export const NOTION_TITLE_PROPERTY =
   import.meta.env.NOTION_TITLE_PROPERTY ||
@@ -110,6 +119,27 @@ export const STICKER_ENABLED_PROPERTY =
   import.meta.env.STICKER_ENABLED_PROPERTY ||
   process.env.STICKER_ENABLED_PROPERTY ||
   STICKER_DEFAULTS.enabled
+
+export const MUSIC_TITLE_PROPERTY =
+  import.meta.env.MUSIC_TITLE_PROPERTY ||
+  process.env.MUSIC_TITLE_PROPERTY ||
+  MUSIC_DEFAULTS.title
+export const MUSIC_COMPOSER_PROPERTY =
+  import.meta.env.MUSIC_COMPOSER_PROPERTY ||
+  process.env.MUSIC_COMPOSER_PROPERTY ||
+  MUSIC_DEFAULTS.composer
+export const MUSIC_AUDIO_PROPERTY =
+  import.meta.env.MUSIC_AUDIO_PROPERTY ||
+  process.env.MUSIC_AUDIO_PROPERTY ||
+  MUSIC_DEFAULTS.audio
+export const MUSIC_ORDER_PROPERTY =
+  import.meta.env.MUSIC_ORDER_PROPERTY ||
+  process.env.MUSIC_ORDER_PROPERTY ||
+  MUSIC_DEFAULTS.order
+export const MUSIC_ENABLED_PROPERTY =
+  import.meta.env.MUSIC_ENABLED_PROPERTY ||
+  process.env.MUSIC_ENABLED_PROPERTY ||
+  MUSIC_DEFAULTS.enabled
 
 export const CUSTOM_DOMAIN =
   import.meta.env.CUSTOM_DOMAIN || process.env.CUSTOM_DOMAIN || ''

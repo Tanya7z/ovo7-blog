@@ -5,6 +5,7 @@ import type {
   Post,
   RichText,
   Sticker,
+  Track,
 } from './interfaces'
 
 const annotation = {
@@ -246,6 +247,25 @@ export const MOCK_EXPLORE_ENTRIES: ExploreEntry[] = [
     Place: '',
     Date: '2026-05-30',
     Cover: null,
+  },
+]
+
+// mock 构建下的曲库：共用一段生成的测试音频，
+// 让 build:mock 也能核对五线谱进度、切曲与跨页续播。
+export const MOCK_TRACKS: Track[] = [
+  {
+    PageId: 'mock-track-prelude',
+    Name: '前奏曲',
+    Composer: '测试音',
+    Order: 1,
+    Audio: { Type: 'external', Url: '/audio/mock-prelude.wav' },
+  },
+  {
+    PageId: 'mock-track-nocturne',
+    Name: '夜曲',
+    Composer: '',
+    Order: 2,
+    Audio: { Type: 'external', Url: '/audio/mock-prelude.wav' },
   },
 ]
 

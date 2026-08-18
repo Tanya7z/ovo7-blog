@@ -1,19 +1,52 @@
 import { BASE_PATH, REQUEST_TIMEOUT_MS } from '../server-constants'
 import type {
   Block,
+  FileObject,
   Heading1,
   Heading2,
   Heading3,
   RichText,
   Column,
 } from './interfaces'
-import { resolveNotionFilename } from './notion/media-file'
+import { notionLocalFileReady, resolveNotionFilename } from './notion/media-file'
 import { pathJoin } from './utils'
 
 export const filePath = (url: URL): string => {
   const [dir, rawName] = url.pathname.split('/').slice(-2)
   const filename = resolveNotionFilename(dir, decodeURIComponent(rawName))
   return pathJoin(BASE_PATH, `/notion/${dir}/${filename}`)
+}
+
+/**
+ * 把 FileObject 解析成页面里能直接用的地址，三种来源统一在这里判：
+ *   1. 以 / 开头的站内静态文件（mock 内容用）
+ *   2. Notion 托管文件——构建期由 NotionMediaDownloader 落到 public/notion/，
+ *      开发态还没落地时退回 Notion 原链（带签名，会过期，但够本地看）
+ *   3. 外链——本来就稳定，原样返回
+ */
+export const resolveNotionAssetUrl = (
+  file: FileObject | null | undefined
+): string => {
+  if (!file?.Url) {
+    return ''
+  }
+  if (file.Url.startsWith('/')) {
+    return getStaticFilePath(file.Url)
+  }
+  if (file.Type !== 'file') {
+    return file.Url
+  }
+
+  try {
+    const parsed = new URL(file.Url)
+    if (!import.meta.env.DEV || notionLocalFileReady(parsed)) {
+      return filePath(parsed)
+    }
+  } catch {
+    // 解析失败时退回 Notion 原链
+  }
+
+  return file.Url
 }
 
 const EXCERPT_MAX_PARAGRAPHS = 2

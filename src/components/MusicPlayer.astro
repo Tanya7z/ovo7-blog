@@ -1,0 +1,861 @@
+---
+import { resolveNotionAssetUrl } from '../lib/blog-helpers.ts'
+import { getTracks } from '../lib/notion/music.ts'
+
+// 曲库为空（未配置 / 读取失败 / 没上传音频）时整个播放器不渲染，
+// 页面回到没有播放器之前的样子。
+const tracks = (await getTracks())
+  .map((track) => ({
+    title: track.Name,
+    composer: track.Composer,
+    src: resolveNotionAssetUrl(track.Audio),
+  }))
+  .filter((track) => !!track.src)
+---
+
+{
+  tracks.length > 0 && (
+    /* transition:persist 让这个节点跨页面存活，换页时音频不中断；
+       key 固定，各页面拿到的是同一个 <audio> 元素 */
+    <aside
+      class="score-player"
+      transition:persist="music-player"
+      data-score-player
+      data-tracks={JSON.stringify(tracks)}
+      aria-label="音乐播放器"
+    >
+      {/* 播放键放在顶栏：收起之后也够得着 */}
+      <div class="score-head">
+        <button
+          class="score-play"
+          type="button"
+          data-score-play
+          title="播放"
+          aria-label="播放"
+        >
+          {/* 按钮显示的是「按下去会发生什么」：停着时给音符，放着时给休止符 */}
+          <span class="score-mark" data-score-glyph="play" aria-hidden="true">
+            ♪
+          </span>
+          <span
+            class="score-mark is-rest is-hidden"
+            data-score-glyph="pause"
+            aria-hidden="true"
+          >
+            𝄽
+          </span>
+        </button>
+        <button
+          class="score-toggle"
+          type="button"
+          data-score-toggle
+          aria-expanded="true"
+          aria-controls="score-panel"
+        >
+          <span data-score-toggle-text>收起</span>
+        </button>
+      </div>
+
+      <div class="score-panel" id="score-panel" data-score-panel>
+        <p class="score-caption">
+          <cite class="score-title" data-score-title>
+            {tracks[0].title}
+          </cite>
+          <span class="score-composer" data-score-composer>
+            {tracks[0].composer}
+          </span>
+        </p>
+
+        {/* 谱表即进度：已播过的音符被墨水填实，未播的留空心。
+            两组音符几何完全相同，靠 clipPath 的宽度切出"已播"部分，
+            这样推进度只改一个属性，不用逐个音符切 class。 */}
+        <svg
+          class="score-staff"
+          viewBox="0 0 300 44"
+          preserveAspectRatio="none"
+          role="slider"
+          tabindex="0"
+          aria-label="播放进度"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+          aria-valuetext="0%"
+          data-score-staff
+        >
+          <defs>
+            <clipPath id="score-played-clip">
+              <rect x="0" y="0" width="0" height="44" data-score-clip />
+            </clipPath>
+          </defs>
+
+          <g class="staff-rules">
+            <line x1="6" y1="9" x2="6" y2="37" />
+            <line x1="6" y1="9" x2="294" y2="9" />
+            <line x1="6" y1="16" x2="294" y2="16" />
+            <line x1="6" y1="23" x2="294" y2="23" />
+            <line x1="6" y1="30" x2="294" y2="30" />
+            <line x1="6" y1="37" x2="294" y2="37" />
+          </g>
+          <text class="staff-clef" x="9" y="34" aria-hidden="true">
+            𝄞
+          </text>
+          {/* 终止线：细线 + 粗线，一小节谱例的收尾 */}
+          <g class="staff-final">
+            <line x1="290" y1="9" x2="290" y2="37" />
+            <rect x="292" y="9" width="2.5" height="28" />
+          </g>
+
+          <g class="staff-notes is-pending" data-score-notes="pending" />
+          <g
+            class="staff-notes is-played"
+            clip-path="url(#score-played-clip)"
+            data-score-notes="played"
+          />
+          <line
+            class="staff-playhead"
+            x1="36"
+            y1="4"
+            x2="36"
+            y2="42"
+            data-score-playhead
+          />
+        </svg>
+
+        <div class="score-controls">
+          {/* 音量借用力度记号：谱子上本来就把它写在谱表下方 */}
+          <span class="score-dynamics" role="group" aria-label="音量">
+            <button
+              class="score-dynamic"
+              type="button"
+              data-score-volume="0.1"
+              title="很弱"
+              aria-label="音量 pp 很弱"
+              aria-pressed="false"
+            >
+              pp
+            </button>
+            <button
+              class="score-dynamic"
+              type="button"
+              data-score-volume="0.25"
+              title="弱"
+              aria-label="音量 p 弱"
+              aria-pressed="false"
+            >
+              p
+            </button>
+            <button
+              class="score-dynamic"
+              type="button"
+              data-score-volume="0.5"
+              title="中强"
+              aria-label="音量 mf 中强"
+              aria-pressed="false"
+            >
+              mf
+            </button>
+            <button
+              class="score-dynamic"
+              type="button"
+              data-score-volume="0.75"
+              title="强"
+              aria-label="音量 f 强"
+              aria-pressed="false"
+            >
+              f
+            </button>
+            <button
+              class="score-dynamic"
+              type="button"
+              data-score-volume="1"
+              title="很强"
+              aria-label="音量 ff 很强"
+              aria-pressed="false"
+            >
+              ff
+            </button>
+          </span>
+          <span class="score-time" data-score-time>
+            0:00 / 0:00
+          </span>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+<style>
+  .score-player {
+    position: fixed;
+    z-index: 60;
+    bottom: 24px;
+    left: 24px;
+    width: 300px;
+    max-width: calc(100vw - 48px);
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    /* 音乐符号（谱号、休止符）都在 Unicode U+1D1xx 区，正文字体没有，
+       只能靠系统的符号字体兜；字体栈在这里定一次，谱号与按钮共用 */
+    --score-music-font: 'Bravura', 'Segoe UI Symbol', 'Apple Symbols',
+      'Noto Music', serif;
+  }
+
+  .is-hidden {
+    display: none;
+  }
+
+  /* 收起后只剩一行标题条 */
+  .score-player.is-collapsed .score-panel {
+    display: none;
+  }
+
+  .score-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .score-player.is-collapsed .score-head {
+    border-bottom: 0;
+  }
+
+  .score-play {
+    display: inline-flex;
+    width: 1.5em;
+    height: 1.6em;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .score-play:hover {
+    color: var(--warm);
+  }
+
+  /* 音符与休止符来自不同字体、天生不一样大，各自校准到看着等重 */
+  .score-mark {
+    font-family: var(--score-music-font);
+    font-size: 1.35rem;
+    line-height: 1;
+  }
+
+  .score-mark.is-rest {
+    font-size: 1.6rem;
+  }
+
+  .score-toggle {
+    padding: 2px 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+
+  .score-toggle:hover {
+    color: var(--ink);
+  }
+
+  .score-panel {
+    padding: 10px 12px 12px;
+  }
+
+  .score-caption {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5em;
+    margin: 0 0 6px;
+    line-height: 1.3;
+  }
+
+  .score-title {
+    overflow: hidden;
+    font-size: 1.05rem;
+    font-style: italic;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .score-composer {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .score-composer:not(:empty)::before {
+    content: '· ';
+  }
+
+  .score-staff {
+    display: block;
+    width: 100%;
+    height: 44px;
+    cursor: pointer;
+    touch-action: none;
+  }
+
+  .score-staff:focus-visible {
+    outline: 1px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  .staff-rules line {
+    stroke: var(--line);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .staff-clef {
+    fill: var(--muted);
+    font-family: var(--score-music-font);
+    /* 谱号本来就该比谱表高出一截，但别高到被 viewBox 切掉 */
+    font-size: 28px;
+  }
+
+  .staff-final line {
+    stroke: var(--line);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .staff-final rect {
+    fill: var(--line);
+  }
+
+  /* 未播：空心音符，只有轮廓；已播：填实 */
+  .staff-notes.is-pending {
+    fill: none;
+    stroke: var(--line);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .staff-notes.is-played {
+    fill: var(--ink);
+    stroke: var(--ink);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .staff-playhead {
+    stroke: var(--ink);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+    opacity: 0.45;
+  }
+
+  .score-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  /* 力度记号照谱面的排法：粗斜体衬线，当前档位上墨，其余留灰 */
+  .score-dynamics {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .score-dynamic {
+    padding: 0 1px;
+    border: 0;
+    background: none;
+    color: var(--line);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-style: italic;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .score-dynamic:hover {
+    color: var(--muted);
+  }
+
+  .score-dynamic.is-current {
+    color: var(--ink);
+  }
+
+  .score-time {
+    margin-left: auto;
+    color: var(--muted);
+    font-family: var(--font-numeral);
+    font-size: 0.95rem;
+    font-variant-numeric: oldstyle-nums;
+  }
+
+  @media (max-width: 760px) {
+    .score-player {
+      right: 12px;
+      bottom: 12px;
+      left: 12px;
+      width: auto;
+      max-width: none;
+    }
+  }
+</style>
+
+<script>
+  interface ScoreTrack {
+    title: string
+    composer: string
+    src: string
+  }
+
+  /**
+   * 播放状态挂在 window 上，而不是挂在 DOM 里。
+   *
+   * ClientRouter 换页时会把 transition:persist 的节点搬进新文档，而按 HTML
+   * 规范，media 元素一旦被 adopt 到别的 document 就必须暂停并重跑加载流程，
+   * currentTime 会被清零——这正是把 <audio> 写进模板会断音的原因。
+   * 让音频只活在 JS 里、永不入 DOM，页面就只是它的一层视图。
+   */
+  interface ScoreState {
+    audio: HTMLAudioElement
+    index: number
+    /** 上一套 DOM 的监听，重新接管时整批解绑 */
+    binding: AbortController | null
+    frame: number
+  }
+
+  declare global {
+    interface Window {
+      __ovo7Score?: ScoreState
+    }
+  }
+
+  // 谱表几何：与组件里的 viewBox="0 0 300 44" 一一对应
+  const STAFF = {
+    top: 9,
+    gap: 7,
+    // 起点要让开左侧的谱号，否则第一个音符会压在谱号上
+    noteStart: 36,
+    noteEnd: 282,
+    count: 20,
+  }
+  // 音高档位：从最下面一线的下方一间，到最上面一线的上方一间，共 11 档
+  const STEP = STAFF.gap / 2
+  const BASE_Y = STAFF.top + STAFF.gap * 4 + STEP
+  const MAX_STEP = 10
+  const SVG_NS = 'http://www.w3.org/2000/svg'
+  const STORAGE_KEY = 'ovo7:score-player:collapsed'
+  const VOLUME_KEY = 'ovo7:score-player:volume'
+  // 默认停在 mf：背景音乐不该一上来就抢戏
+  const DEFAULT_VOLUME = 0.5
+
+  /** FNV-1a：把曲名压成一个稳定的种子，同一首曲子每次画出同一句谱。 */
+  function seedFrom(text: string): number {
+    let hash = 2166136261
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i)
+      hash = Math.imul(hash, 16777619)
+    }
+    return hash >>> 0 || 1
+  }
+
+  /** xorshift32：只要能稳定复现就够，不追求统计质量。 */
+  function randomFrom(seed: number): () => number {
+    let state = seed
+    return () => {
+      state ^= state << 13
+      state >>>= 0
+      state ^= state >>> 17
+      state ^= state << 5
+      state >>>= 0
+      return state / 4294967296
+    }
+  }
+
+  /**
+   * 生成一句"像样"的旋律：以级进为主、偶尔跳进，
+   * 纯随机的话音符会上下乱蹦，看着不像谱子。
+   */
+  function melody(title: string): number[] {
+    const next = randomFrom(seedFrom(title))
+    const intervals = [-2, -1, -1, -1, 1, 1, 1, 2]
+    const steps: number[] = []
+    let current = 4
+
+    for (let i = 0; i < STAFF.count; i++) {
+      steps.push(current)
+      let delta = intervals[Math.floor(next() * intervals.length)]
+      // 越偏离中间，越容易被拽回来；否则旋律会一路沉到谱表底下贴着走
+      const drift = (current - MAX_STEP / 2) / (MAX_STEP / 2)
+      if (drift * delta > 0 && next() < Math.abs(drift) * 0.8) {
+        delta = -delta
+      }
+      current = Math.min(MAX_STEP, Math.max(0, current + delta))
+    }
+    return steps
+  }
+
+  /** 画一个音符：椭圆符头（略微倾斜，符合手写习惯）加一根符干。 */
+  function drawNote(x: number, y: number): SVGGElement {
+    const group = document.createElementNS(SVG_NS, 'g')
+
+    const head = document.createElementNS(SVG_NS, 'ellipse')
+    head.setAttribute('cx', String(x))
+    head.setAttribute('cy', String(y))
+    head.setAttribute('rx', '3.4')
+    head.setAttribute('ry', '2.5')
+    head.setAttribute('transform', `rotate(-22 ${x} ${y})`)
+    group.appendChild(head)
+
+    // 中线以上符干朝下（挂在左侧），以下朝上（挂在右侧），照谱例的常规
+    const middle = STAFF.top + STAFF.gap * 2
+    const up = y >= middle
+    const stem = document.createElementNS(SVG_NS, 'line')
+    stem.setAttribute('x1', String(x + (up ? 3.2 : -3.2)))
+    stem.setAttribute('x2', String(x + (up ? 3.2 : -3.2)))
+    stem.setAttribute('y1', String(y))
+    stem.setAttribute('y2', String(y + (up ? -13 : 13)))
+    group.appendChild(stem)
+
+    return group
+  }
+
+  /** 上次选的力度；读不到或不合法就回到 mf。 */
+  function storedVolume(): number {
+    try {
+      const saved = Number(localStorage.getItem(VOLUME_KEY))
+      if (Number.isFinite(saved) && saved > 0 && saved <= 1) {
+        return saved
+      }
+    } catch {
+      // 隐私模式下读不了 localStorage，用默认值即可
+    }
+    return DEFAULT_VOLUME
+  }
+
+  function formatTime(seconds: number): string {
+    if (!Number.isFinite(seconds) || seconds < 0) {
+      return '0:00'
+    }
+    const total = Math.floor(seconds)
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
+  }
+
+  function setupScorePlayer() {
+    const found = document.querySelector<HTMLElement>('[data-score-player]')
+    // transition:persist 会把整个节点连同已绑定的监听一起搬到新页面，
+    // 所以只在第一次见到它时初始化，否则换页会把正在播的曲子打断
+    if (!found || found.dataset.bound) {
+      return
+    }
+    // 提升成非空 const：下面的函数声明会被提升，TS 不会把上面的判空带进去
+    const root: HTMLElement = found
+
+    let tracks: ScoreTrack[] = []
+    try {
+      tracks = JSON.parse(root.dataset.tracks || '[]')
+    } catch {
+      tracks = []
+    }
+    if (tracks.length === 0) {
+      return
+    }
+    root.dataset.bound = 'true'
+
+    if (!window.__ovo7Score) {
+      window.__ovo7Score = {
+        audio: new Audio(),
+        index: 0,
+        binding: null,
+        frame: 0,
+      }
+      window.__ovo7Score.audio.preload = 'metadata'
+      window.__ovo7Score.audio.volume = storedVolume()
+    }
+    const state = window.__ovo7Score
+    const audio = state.audio
+
+    // persist 正常时这里只会跑一次；万一某次换页没能保住节点，
+    // 也要先把旧 DOM 上的监听解掉，避免两套视图抢同一个音频
+    state.binding?.abort()
+    cancelAnimationFrame(state.frame)
+    const binding = new AbortController()
+    state.binding = binding
+    const bound = { signal: binding.signal }
+
+    const staff = root.querySelector<SVGSVGElement>('[data-score-staff]')!
+    const clip = root.querySelector<SVGRectElement>('[data-score-clip]')!
+    const playhead = root.querySelector<SVGLineElement>('[data-score-playhead]')!
+    const pending = root.querySelector<SVGGElement>('[data-score-notes="pending"]')!
+    const played = root.querySelector<SVGGElement>('[data-score-notes="played"]')!
+    const titleEl = root.querySelector<HTMLElement>('[data-score-title]')!
+    const composerEl = root.querySelector<HTMLElement>('[data-score-composer]')!
+    const timeEl = root.querySelector<HTMLElement>('[data-score-time]')!
+    const playButton = root.querySelector<HTMLButtonElement>('[data-score-play]')!
+    const playGlyph = root.querySelector<HTMLElement>('[data-score-glyph="play"]')!
+    const pauseGlyph = root.querySelector<HTMLElement>('[data-score-glyph="pause"]')!
+    const toggle = root.querySelector<HTMLButtonElement>('[data-score-toggle]')!
+    const toggleText = root.querySelector<HTMLElement>('[data-score-toggle-text]')!
+    const dynamics = Array.from(
+      root.querySelectorAll<HTMLButtonElement>('[data-score-volume]')
+    )
+
+    function renderStaff(title: string) {
+      pending.replaceChildren()
+      played.replaceChildren()
+
+      const steps = melody(title)
+      const span = (STAFF.noteEnd - STAFF.noteStart) / (STAFF.count - 1)
+      steps.forEach((step, i) => {
+        const x = STAFF.noteStart + span * i
+        const y = BASE_Y - step * STEP
+        pending.appendChild(drawNote(x, y))
+        played.appendChild(drawNote(x, y))
+      })
+    }
+
+    function paintProgress(ratio: number) {
+      const clamped = Math.min(1, Math.max(0, ratio))
+      // 让符头刚被扫过就整个吃进墨里，而不是切掉一半
+      const x = STAFF.noteStart + (STAFF.noteEnd - STAFF.noteStart) * clamped
+      clip.setAttribute('width', String(x + 4))
+      playhead.setAttribute('x1', String(x))
+      playhead.setAttribute('x2', String(x))
+
+      const percent = Math.round(clamped * 100)
+      staff.setAttribute('aria-valuenow', String(percent))
+      staff.setAttribute('aria-valuetext', `${percent}%`)
+    }
+
+    function refreshTime() {
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 0
+      timeEl.textContent = `${formatTime(audio.currentTime)} / ${formatTime(duration)}`
+      paintProgress(duration > 0 ? audio.currentTime / duration : 0)
+    }
+
+    function tick() {
+      refreshTime()
+      if (!audio.paused) {
+        state.frame = requestAnimationFrame(tick)
+      }
+    }
+
+    /** 把当前曲目的状态整套画到这份 DOM 上；换页接管新 DOM 时也走这里。 */
+    function renderTrack() {
+      const track = tracks[state.index]
+      titleEl.textContent = track.title
+      composerEl.textContent = track.composer
+      renderStaff(track.title)
+      refreshTime()
+      syncPlayState()
+    }
+
+    function select(nextIndex: number, autoplay: boolean) {
+      state.index = (nextIndex + tracks.length) % tracks.length
+      audio.src = tracks[state.index].src
+      renderTrack()
+      if (autoplay) {
+        // 自动续播被浏览器拦下不算错误，静默失败即可
+        audio.play().catch(() => {})
+      }
+    }
+
+    /** 高亮离当前音量最近的那个记号，避免存量数值对不上任何一档时全灰。 */
+    function paintDynamics() {
+      let nearest = dynamics[0]
+      dynamics.forEach((button) => {
+        const gap = Math.abs(Number(button.dataset.scoreVolume) - audio.volume)
+        const best = Math.abs(Number(nearest.dataset.scoreVolume) - audio.volume)
+        if (gap < best) {
+          nearest = button
+        }
+      })
+      dynamics.forEach((button) => {
+        const current = button === nearest
+        button.classList.toggle('is-current', current)
+        button.setAttribute('aria-pressed', current ? 'true' : 'false')
+      })
+    }
+
+    function syncPlayState() {
+      const playing = !audio.paused && !audio.ended
+      playGlyph.classList.toggle('is-hidden', playing)
+      pauseGlyph.classList.toggle('is-hidden', !playing)
+      playButton.setAttribute('aria-label', playing ? '暂停' : '播放')
+      // 顺手解释一下那个字形是什么，免得只认识三角形的人一脸问号
+      playButton.setAttribute(
+        'title',
+        playing ? '暂停 · 休止符 𝄽' : '播放 · 音符 ♪'
+      )
+    }
+
+    /** 把指针横坐标换算成 0～1 的进度；SVG 会被 CSS 拉伸，得按比例折算。 */
+    function ratioFromPointer(clientX: number): number {
+      const rect = staff.getBoundingClientRect()
+      if (rect.width === 0) {
+        return 0
+      }
+      const viewX = ((clientX - rect.left) / rect.width) * 300
+      return (viewX - STAFF.noteStart) / (STAFF.noteEnd - STAFF.noteStart)
+    }
+
+    function seekTo(ratio: number) {
+      if (!Number.isFinite(audio.duration) || audio.duration <= 0) {
+        return
+      }
+      audio.currentTime = Math.min(1, Math.max(0, ratio)) * audio.duration
+      refreshTime()
+    }
+
+    playButton.addEventListener(
+      'click',
+      () => {
+        if (audio.paused) {
+          audio.play().catch(() => {})
+        } else {
+          audio.pause()
+        }
+      },
+      bound
+    )
+    dynamics.forEach((button) => {
+      button.addEventListener(
+        'click',
+        () => {
+          audio.volume = Number(button.dataset.scoreVolume)
+          paintDynamics()
+          try {
+            localStorage.setItem(VOLUME_KEY, String(audio.volume))
+          } catch {
+            // 存不下就只在本次会话生效
+          }
+        },
+        bound
+      )
+    })
+
+    audio.addEventListener(
+      'play',
+      () => {
+        syncPlayState()
+        cancelAnimationFrame(state.frame)
+        state.frame = requestAnimationFrame(tick)
+      },
+      bound
+    )
+    audio.addEventListener(
+      'pause',
+      () => {
+        syncPlayState()
+        cancelAnimationFrame(state.frame)
+        refreshTime()
+      },
+      bound
+    )
+    audio.addEventListener('loadedmetadata', refreshTime, bound)
+    audio.addEventListener(
+      'ended',
+      () => {
+        syncPlayState()
+        // 没有切曲按钮，最后一首放完就绕回第一首，整套节目照反复记号那样循环；
+        // 否则播完就哑了，读者没有任何入口能重新开始
+        select(state.index + 1, true)
+      },
+      bound
+    )
+
+    staff.addEventListener(
+      'pointerdown',
+      (event: PointerEvent) => {
+        // 先跳转再抓指针：抓取失败（少见）也不该把这一下点击弄丢
+        seekTo(ratioFromPointer(event.clientX))
+        try {
+          staff.setPointerCapture(event.pointerId)
+        } catch {
+          // 抓不住就退化成「只能点、不能拖」
+        }
+      },
+      bound
+    )
+    staff.addEventListener(
+      'pointermove',
+      (event: PointerEvent) => {
+        if (staff.hasPointerCapture(event.pointerId)) {
+          seekTo(ratioFromPointer(event.clientX))
+        }
+      },
+      bound
+    )
+    staff.addEventListener(
+      'pointerup',
+      (event: PointerEvent) => {
+        staff.releasePointerCapture(event.pointerId)
+      },
+      bound
+    )
+    staff.addEventListener(
+      'keydown',
+      (event: KeyboardEvent) => {
+        const offset =
+          event.key === 'ArrowRight' ? 5 : event.key === 'ArrowLeft' ? -5 : 0
+        if (offset === 0) {
+          return
+        }
+        event.preventDefault()
+        audio.currentTime = Math.max(
+          0,
+          Math.min(audio.duration || 0, audio.currentTime + offset)
+        )
+        refreshTime()
+      },
+      bound
+    )
+
+    function applyCollapsed(collapsed: boolean) {
+      root.classList.toggle('is-collapsed', collapsed)
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
+      toggleText.textContent = collapsed ? '展开' : '收起'
+    }
+
+    toggle.addEventListener(
+      'click',
+      () => {
+        const collapsed = !root.classList.contains('is-collapsed')
+        applyCollapsed(collapsed)
+        try {
+          localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0')
+        } catch {
+          // 隐私模式下写不了 localStorage，收起状态不记住就是了
+        }
+      },
+      bound
+    )
+
+    try {
+      applyCollapsed(localStorage.getItem(STORAGE_KEY) === '1')
+    } catch {
+      applyCollapsed(false)
+    }
+
+    paintDynamics()
+
+    if (audio.src) {
+      // 已经在放了：这只是换页后接管新 DOM，别碰音频，照着现状画
+      renderTrack()
+      if (!audio.paused) {
+        state.frame = requestAnimationFrame(tick)
+      }
+    } else {
+      select(0, false)
+    }
+  }
+
+  document.addEventListener('astro:page-load', setupScorePlayer)
+</script>

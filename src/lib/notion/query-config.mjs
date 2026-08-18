@@ -44,6 +44,17 @@ export const EXPLORE_DEFAULTS = {
   date: '日期',
 }
 
+// 「曲库」字段名。全站常驻播放器的曲目来源，与文章、贴画分库存放。
+// 「音频」是 files 属性：既可上传到 Notion（构建期落地到 public/notion/），
+// 也可以填外链（对象存储直链），两种来源由 firstFile 统一成 FileObject。
+export const MUSIC_DEFAULTS = {
+  title: '名称',
+  composer: '作曲',
+  audio: '音频',
+  order: '排序',
+  enabled: '启用',
+}
+
 // 依据过滤类型构造 Notion 查询的 filter 对象；未配置过滤时返回 null。
 // 这是「发布过滤」规则的唯一权威实现，应用与缓存脚本都调用它。
 export function buildPublishFilter(filterProperty, filterValue, filterType) {

@@ -13,6 +13,7 @@ import '../styles/syntax-coloring.css'
 import GoogleAnalytics from '../components/GoogleAnalytics.astro'
 import SearchModal from '../components/SearchModal.astro'
 import NavTransition from '../components/NavTransition.astro'
+import MusicPlayer from '../components/MusicPlayer.astro'
 import logo from '../assets/logo.png'
 
 export interface Props {
@@ -162,6 +163,7 @@ const siteOGImage = new URL(
 
     <SearchModal />
     <NavTransition />
+    <MusicPlayer />
     {
       ENABLE_LIGHTBOX && (
         <script src={getStaticFilePath('/scripts/fslightbox.js')} />

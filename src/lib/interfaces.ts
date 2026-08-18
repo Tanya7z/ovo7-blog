@@ -48,6 +48,16 @@ export interface ExploreEntry {
   Cover: FileObject | null
 }
 
+/** 「曲库」里的一首曲子，供全站常驻播放器按 Order 顺序播放。 */
+export interface Track {
+  PageId: string
+  Name: string
+  /** 作曲者 / 演奏者，显示在曲名后面；留空则不显示 */
+  Composer: string
+  Order: number
+  Audio: FileObject | null
+}
+
 export interface Block {
   Id: string
   Type: string

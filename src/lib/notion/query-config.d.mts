@@ -42,6 +42,14 @@ export const EXPLORE_DEFAULTS: {
   date: string
 }
 
+export const MUSIC_DEFAULTS: {
+  title: string
+  composer: string
+  audio: string
+  order: string
+  enabled: string
+}
+
 export function buildPublishFilter(
   filterProperty: string,
   filterValue: string,

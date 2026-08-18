@@ -9,6 +9,7 @@ import NotionMediaDownloader from './src/integrations/notion-media-downloader';
 import PublicNotionCopier from './src/integrations/public-notion-copier';
 import { getAllStickers } from './src/lib/notion/stickers';
 import { getExploreEntries } from './src/lib/notion/explore';
+import { getTracks } from './src/lib/notion/music';
 
 const getSite = function () {
   if (CUSTOM_DOMAIN) {
@@ -65,6 +66,11 @@ export default defineConfig({
     ),
     NotionMediaDownloader('explore-cover-downloader', async () =>
       (await getExploreEntries()).map((entry) => entry.Cover)
+    ),
+    // 音频同样是 Notion 托管的带签名链接，必须构建期落地；
+    // downloader 只按 FileObject 工作，音频复用这一处逻辑即可
+    NotionMediaDownloader('music-audio-downloader', async () =>
+      (await getTracks()).map((track) => track.Audio)
     ),
     PublicNotionCopier(),
   ],
