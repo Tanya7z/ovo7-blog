@@ -12,6 +12,7 @@ import {
   getDateStr,
   filePath,
   extractTargetBlocks,
+  resolveNotionAssetUrl,
 } from '../../lib/blog-helpers.ts'
 import { notionLocalFileReady } from '../../lib/notion/media-file.ts'
 import Layout from '../../layouts/Layout.astro'
@@ -90,6 +91,12 @@ const nextPost = allPosts[currentPostIndex - 1]
 let ogImage = ''
 const coverSource = post.Cover?.Url ? post.Cover : post.FeaturedImage
 const hasCover = Boolean(coverSource?.Url)
+// 旁注里写给读者看的头图来源：外链保留原地址，Notion 托管文件用站内路径
+const coverSourceHref = hasCover ? resolveNotionAssetUrl(coverSource) : ''
+const coverSourceLink =
+  coverSourceHref && !/^https?:\/\//i.test(coverSourceHref)
+    ? new URL(coverSourceHref, Astro.site).toString()
+    : coverSourceHref
 if (hasCover && coverSource?.Url) {
   ogImage = new URL(filePath(new URL(coverSource.Url)), Astro.site).toString()
 }
@@ -116,11 +123,35 @@ if (hasCover && coverSource?.Url) {
         {post.Title}
       </h1>
       {
-        post.Date && (
+        (post.Date || coverSourceLink) && (
           <p class="subtitle">
-            <time class="numeral" datetime={post.Date}>
-              {getDateStr(post.Date)}
-            </time>
+            {post.Date && (
+              <time class="numeral" datetime={post.Date}>
+                {getDateStr(post.Date)}
+              </time>
+            )}
+            {coverSourceLink && (
+              <>
+                <label class="margin-toggle" for={`cover-source-${slug}`}>
+                  &#8853;
+                </label>
+                <input
+                  type="checkbox"
+                  id={`cover-source-${slug}`}
+                  class="margin-toggle"
+                />
+                <span class="marginnote cover-source-note">
+                  头图来源：
+                  <a
+                    href={coverSourceLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {coverSourceLink}
+                  </a>
+                </span>
+              </>
+            )}
           </p>
         )
       }
@@ -143,6 +174,15 @@ if (hasCover && coverSource?.Url) {
     width: 1.1em;
     height: 1.1em;
     vertical-align: -0.15em;
+  }
+  .cover-source-note {
+    font-style: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .cover-source-note a {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
   }
   .post-footer {
     width: 55%;
