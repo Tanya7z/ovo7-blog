@@ -162,6 +162,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # 纯 assets 静态站需要 Wrangler 4；action 默认会装 3.x
+          wranglerVersion: '4.54.0'
           command: deploy
 
       - name: Sync media to imgbed (Cloudflare mode)
