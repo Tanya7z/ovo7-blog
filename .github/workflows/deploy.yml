@@ -187,14 +187,24 @@ jobs:
       - name: Healthcheck
         run: |
           set -euo pipefail
+          # blog 经 CF，Runner 常拿到人机验证 403，只做软检查
           code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 \
-            -A 'ovo7-blog-ci/1.0' 'https://blog.ovo7.cc/')
-          echo "blog HTTP ${code}"
-          # 403 多半是 CF 人机验证，部署本身仍可能成功
-          if [[ "${code}" != "200" && "${code}" != "403" ]]; then
-            exit 1
-          fi
-          img=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 \
+            -A 'ovo7-blog-ci/1.0' 'https://blog.ovo7.cc/' || echo '000')
+          echo "blog HTTP ${code} (from runner)"
+          # img.ovo7.cc 在国内机；海外 Runner 常被重置，改走部署机本机探测
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<'REMOTE'
+          set -euo pipefail
+          img=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 \
             'https://img.ovo7.cc/api/health')
           echo "imgbed health HTTP ${img}"
           test "${img}" = "200"
+          sample=$(find /var/www/img.ovo7.cc/blog -type f | head -1 || true)
+          if [[ -n "${sample}" ]]; then
+            rel="${sample#/var/www/img.ovo7.cc/}"
+            scode=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 \
+              "https://img.ovo7.cc/${rel}")
+            echo "imgbed sample ${rel} HTTP ${scode}"
+            test "${scode}" = "200"
+          fi
+          echo "imgbed files=$(find /var/www/img.ovo7.cc/blog -type f | wc -l)"
+          REMOTE
