@@ -4,7 +4,9 @@ export interface NotionPropertyDefaults {
   title: string
   slug: string
   date: string
-  tags: string
+  categories: string
+  domains: string
+  labels: string
   excerpt: string
   featuredImage: string
   filterProperty: string

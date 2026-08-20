@@ -12,7 +12,12 @@ export interface Post {
   Cover: FileObject | null
   Slug: string
   Date: string
-  Tags: SelectProperty[]
+  /** Notion「类型」，网站展示为类目（可筛选） */
+  Categories: SelectProperty[]
+  /** Notion「领域」 */
+  Domains: SelectProperty[]
+  /** Notion「标签」关键词 */
+  Labels: SelectProperty[]
   Excerpt: string
   FeaturedImage: FileObject | null
 }

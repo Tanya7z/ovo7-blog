@@ -15,9 +15,11 @@ import {
   NOTION_FILTER_TYPE,
   NOTION_FILTER_VALUE,
   NOTION_API_SECRET,
+  NOTION_CATEGORIES_PROPERTY,
+  NOTION_DOMAINS_PROPERTY,
+  NOTION_LABELS_PROPERTY,
   NOTION_SLUG_PROPERTY,
   NOTION_SORT_PROPERTY,
-  NOTION_TAGS_PROPERTY,
   NOTION_TITLE_PROPERTY,
   NUMBER_OF_POSTS_PER_PAGE,
   REQUEST_TIMEOUT_MS,
@@ -163,7 +165,7 @@ export async function getPostsByTag(
 
   const allPosts = await getAllPosts()
   return allPosts
-    .filter((post) => post.Tags.find((tag) => tag.name === tagName))
+    .filter((post) => post.Categories.find((tag) => tag.name === tagName))
     .slice(0, pageSize)
 }
 
@@ -192,7 +194,7 @@ export async function getPostsByTagAndPage(
 
   const allPosts = await getAllPosts()
   const posts = allPosts.filter((post) =>
-    post.Tags.find((tag) => tag.name === tagName)
+    post.Categories.find((tag) => tag.name === tagName)
   )
 
   const startIndex = (page - 1) * NUMBER_OF_POSTS_PER_PAGE
@@ -212,7 +214,7 @@ export async function getNumberOfPages(): Promise<number> {
 export async function getNumberOfPagesByTag(tagName: string): Promise<number> {
   const allPosts = await getAllPosts()
   const posts = allPosts.filter((post) =>
-    post.Tags.find((tag) => tag.name === tagName)
+    post.Categories.find((tag) => tag.name === tagName)
   )
   return (
     Math.floor(posts.length / NUMBER_OF_POSTS_PER_PAGE) +
@@ -379,7 +381,7 @@ export async function getAllTags(): Promise<SelectProperty[]> {
 
   const tagNames: string[] = []
   return allPosts
-    .flatMap((post) => post.Tags)
+    .flatMap((post) => post.Categories)
     .reduce((acc, tag) => {
       if (!tagNames.includes(tag.name)) {
         acc.push(tag)
@@ -1095,8 +1097,14 @@ function _buildPost(pageObject: responses.PageObject): Post {
   const dateProperty = NOTION_DATE_PROPERTY
     ? prop[NOTION_DATE_PROPERTY]
     : undefined
-  const tagsProperty = NOTION_TAGS_PROPERTY
-    ? prop[NOTION_TAGS_PROPERTY]
+  const categoriesProperty = NOTION_CATEGORIES_PROPERTY
+    ? prop[NOTION_CATEGORIES_PROPERTY]
+    : undefined
+  const domainsProperty = NOTION_DOMAINS_PROPERTY
+    ? prop[NOTION_DOMAINS_PROPERTY]
+    : undefined
+  const labelsProperty = NOTION_LABELS_PROPERTY
+    ? prop[NOTION_LABELS_PROPERTY]
     : undefined
   const excerptProperty = NOTION_EXCERPT_PROPERTY
     ? prop[NOTION_EXCERPT_PROPERTY]
@@ -1158,8 +1166,11 @@ function _buildPost(pageObject: responses.PageObject): Post {
     }
   }
 
-  const tag = tagsProperty?.select || tagsProperty?.status
-  const tags = tagsProperty?.multi_select || (tag ? [tag] : [])
+  const category = categoriesProperty?.select || categoriesProperty?.status
+  const categories =
+    categoriesProperty?.multi_select || (category ? [category] : [])
+  const domains = domainsProperty?.multi_select || []
+  const labels = labelsProperty?.multi_select || []
   const configuredSlug = slugProperty?.rich_text
     ? slugProperty.rich_text.map((richText) => richText.plain_text).join('')
     : ''
@@ -1171,7 +1182,9 @@ function _buildPost(pageObject: responses.PageObject): Post {
     Cover: cover,
     Slug: configuredSlug || _createSlug(title, pageObject.id),
     Date: dateProperty?.date?.start || pageObject.created_time,
-    Tags: tags,
+    Categories: categories,
+    Domains: domains,
+    Labels: labels,
     Excerpt:
       excerptProperty?.rich_text && excerptProperty.rich_text.length > 0
         ? excerptProperty.rich_text

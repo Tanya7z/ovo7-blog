@@ -57,10 +57,23 @@ export const NOTION_DATE_PROPERTY =
   import.meta.env.NOTION_DATE_PROPERTY ||
   process.env.NOTION_DATE_PROPERTY ||
   PROPERTY_DEFAULTS.date
-export const NOTION_TAGS_PROPERTY =
+// 「类型」→ 网站类目；保留 NOTION_TAGS_PROPERTY 别名以免旧 .env 失效
+export const NOTION_CATEGORIES_PROPERTY =
+  import.meta.env.NOTION_CATEGORIES_PROPERTY ||
+  process.env.NOTION_CATEGORIES_PROPERTY ||
   import.meta.env.NOTION_TAGS_PROPERTY ||
   process.env.NOTION_TAGS_PROPERTY ||
-  PROPERTY_DEFAULTS.tags
+  PROPERTY_DEFAULTS.categories
+/** @deprecated 请改用 NOTION_CATEGORIES_PROPERTY */
+export const NOTION_TAGS_PROPERTY = NOTION_CATEGORIES_PROPERTY
+export const NOTION_DOMAINS_PROPERTY =
+  import.meta.env.NOTION_DOMAINS_PROPERTY ||
+  process.env.NOTION_DOMAINS_PROPERTY ||
+  PROPERTY_DEFAULTS.domains
+export const NOTION_LABELS_PROPERTY =
+  import.meta.env.NOTION_LABELS_PROPERTY ||
+  process.env.NOTION_LABELS_PROPERTY ||
+  PROPERTY_DEFAULTS.labels
 export const NOTION_EXCERPT_PROPERTY =
   import.meta.env.NOTION_EXCERPT_PROPERTY ||
   process.env.NOTION_EXCERPT_PROPERTY ||
@@ -69,7 +82,7 @@ export const NOTION_FEATURED_IMAGE_PROPERTY =
   import.meta.env.NOTION_FEATURED_IMAGE_PROPERTY ||
   process.env.NOTION_FEATURED_IMAGE_PROPERTY ||
   PROPERTY_DEFAULTS.featuredImage
-// 默认不过滤：公开「仓库」内全部页面；类型仅作标签
+// 默认不过滤：公开「仓库」内全部页面；类型仅作类目
 export const NOTION_FILTER_PROPERTY =
   import.meta.env.NOTION_FILTER_PROPERTY ||
   process.env.NOTION_FILTER_PROPERTY ||

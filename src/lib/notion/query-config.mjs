@@ -10,7 +10,10 @@ export const PROPERTY_DEFAULTS = {
   title: '名称',
   slug: '',
   date: '日期',
-  tags: '类型',
+  // 「类型」在网站上展示为「类目」；与 Notion「标签」区分开
+  categories: '类型',
+  domains: '领域',
+  labels: '标签',
   excerpt: '',
   featuredImage: '封面',
   filterProperty: '',

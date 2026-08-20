@@ -6,7 +6,7 @@ import {
 } from '../../../../../lib/notion/client.ts'
 import { getNavLink } from '../../../../../lib/blog-helpers.ts'
 
-// 标签分页已合并为完整列表，这里仅作旧链接回退
+// 类目分页已合并为完整列表，这里仅作旧链接回退
 export async function getStaticPaths() {
   const allTags = await getAllTags()
   const params: { params: { tag: string; page: string } }[] = []
@@ -23,5 +23,5 @@ export async function getStaticPaths() {
 }
 
 const { tag } = Astro.params
-return Astro.redirect(getNavLink(`/posts/tag/${tag}`))
+return Astro.redirect(getNavLink(`/posts/tag/${encodeURIComponent(tag || '')}`))
 ---

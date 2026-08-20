@@ -17,7 +17,7 @@ import {
 import { notionLocalFileReady } from '../../lib/notion/media-file.ts'
 import Layout from '../../layouts/Layout.astro'
 import PostCover from '../../components/PostCover.astro'
-import PostTags from '../../components/PostTags.astro'
+import PostMeta from '../../components/PostMeta.astro'
 import PostBody from '../../components/PostBody.astro'
 import PostRelativeLink from '../../components/PostRelativeLink.astro'
 
@@ -159,7 +159,7 @@ if (hasCover && coverSource?.Url) {
       <PostBody blocks={blocks} />
 
       <footer class="post-footer">
-        <PostTags post={post} enableLink={true} />
+        <PostMeta post={post} enableLink={true} />
         <PostRelativeLink prevPost={prevPost} nextPost={nextPost} />
       </footer>
     </article>

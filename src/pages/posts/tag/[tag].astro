@@ -25,10 +25,10 @@ const dayOf = (date: string) =>
   `${new Date(date).getFullYear()}-${('00' + (new Date(date).getMonth() + 1)).slice(-2)}-${('00' + new Date(date).getDate()).slice(-2)}`
 ---
 
-<Layout title={`标签：${tag}`} path={`/posts/tag/${tag}`}>
+<Layout title={`类目：${tag}`} path={`/posts/tag/${tag}`}>
   <div slot="main">
     <h1 class="post-title">
-      <span class="tag-mark">标签</span>
+      <span class="tag-mark">类目</span>
       {tag}
     </h1>
 
@@ -50,7 +50,7 @@ const dayOf = (date: string) =>
     }
 
     <section class="other-tags">
-      <BlogTagsLink heading="其他标签" tags={tags} />
+      <BlogTagsLink heading="其他类目" tags={tags} />
     </section>
   </div>
 </Layout>

@@ -1,0 +1,81 @@
+---
+import type { Post, SelectProperty } from '../lib/interfaces.ts'
+import { getTagLink } from '../lib/blog-helpers.ts'
+
+export interface Props {
+  post: Post
+  enableLink?: boolean
+}
+
+const { post, enableLink = true } = Astro.props
+
+const categories = post.Categories ?? []
+const domains = post.Domains ?? []
+const labels = post.Labels ?? []
+const hasMeta =
+  categories.length > 0 || domains.length > 0 || labels.length > 0
+
+const joinNames = (items: SelectProperty[]) =>
+  items.map((item) => item.name).join(' · ')
+---
+
+{
+  hasMeta && (
+    <div class="post-meta">
+      {categories.length > 0 && (
+        <p class="meta-row">
+          <span class="meta-key">类目</span>
+          <span class="meta-values">
+            {categories.map((cat: SelectProperty, i: number) => (
+              <>
+                {i > 0 && <span class="meta-sep"> · </span>}
+                {enableLink ? (
+                  <a href={getTagLink(cat.name)}>{cat.name}</a>
+                ) : (
+                  <span>{cat.name}</span>
+                )}
+              </>
+            ))}
+          </span>
+        </p>
+      )}
+      {domains.length > 0 && (
+        <p class="meta-row">
+          <span class="meta-key">领域</span>
+          <span class="meta-values">{joinNames(domains)}</span>
+        </p>
+      )}
+      {labels.length > 0 && (
+        <p class="meta-row">
+          <span class="meta-key">标签</span>
+          <span class="meta-values">{joinNames(labels)}</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
+<style>
+  .post-meta {
+    margin-bottom: 1.2rem;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 0.75rem;
+    margin: 0.25rem 0;
+    font-size: 1.1rem;
+    line-height: 1.5;
+  }
+  .meta-key {
+    color: var(--muted);
+    font-size: 0.65em;
+    letter-spacing: 0.04em;
+  }
+  .meta-values,
+  .meta-values a,
+  .meta-sep {
+    color: var(--muted);
+  }
+</style>
