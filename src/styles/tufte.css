@@ -214,11 +214,11 @@ a:focus-visible {
   outline-offset: 3px;
 }
 
-/* ===== 代码：纸面等宽字，浅色细边框 ===== */
+/* ===== 行内 code：墨色等宽 + 浅底，兼作轻强调（不用 Notion 默认红） ===== */
 code {
   font-family: var(--font-mono);
-  font-size: 1rem;
-  padding: 0.1em 0.3em;
+  font-size: 1.05rem;
+  padding: 0.05em 0.28em;
   background: var(--soft);
   color: var(--ink);
   border-radius: 0;
