@@ -28,29 +28,46 @@ if (pageId) {
             <img
               src={post.Icon.Url}
               class="notion-icon"
-              alt="Post title icon in a page link"
+              alt=""
+              width="20"
+              height="20"
+              data-image-component="true"
             />
           ) : (
             '📄'
           )}
-          <img src={arrow.src} class="icon-link" alt="Arrow icon of a page link" />
+          <img
+            src={arrow.src}
+            class="icon-link"
+            alt=""
+            width="8"
+            height="8"
+            data-image-component="true"
+          />
         </span>
         <span class="text">{post.Title}</span>
       </>
     </a>
   ) : (
-    <a class="link">
+    <span class="link">
       <span class="icon">
         🚫
-        <img src={arrow.src} class="icon-link" alt="Arrow icon of a page link" />
+        <img
+          src={arrow.src}
+          class="icon-link"
+          alt=""
+          width="8"
+          height="8"
+          data-image-component="true"
+        />
       </span>
       <span class="text not-found">Post not found</span>
-    </a>
+    </span>
   )
 }
 
 <style>
-  a.link {
+  .link {
     display: inline-flex;
     font-weight: 600;
     gap: 4px;
@@ -85,8 +102,5 @@ if (pageId) {
   }
   span.text.not-found {
     font-weight: normal;
-  }
-  a.link:hover span.text.not-found {
-    text-decoration: none;
   }
 </style>

@@ -60,8 +60,12 @@ try {
                 <div>
                   <img
                     src={`https://www.google.com/s2/favicons?domain=${url.hostname}`}
-                    alt="Favicon of the bookmark site"
+                    alt=""
+                    width="16"
+                    height="16"
                     loading="lazy"
+                    decoding="async"
+                    data-image-component="true"
                   />
                 </div>
                 <div>{url.origin}</div>
@@ -71,8 +75,12 @@ try {
               {metadata && metadata.image && (
                 <img
                   src={metadata.image}
-                  alt="Site image of the bookmark"
+                  alt=""
+                  width="320"
+                  height="180"
                   loading="lazy"
+                  decoding="async"
+                  data-image-component="true"
                 />
               )}
             </div>

@@ -4,11 +4,13 @@ import Layout from '../layouts/Layout.astro'
 import { Icon } from 'astro-icon/components'
 import { getNavLink, getPostLink } from '../lib/blog-helpers.ts'
 import { getPosts } from '../lib/notion/client.ts'
+import { getListingLibraries } from '../lib/notion/libraries.ts'
 import StickerBoard from '../components/StickerBoard.astro'
 import cover from '../assets/cover.jpg'
 import logo from '../assets/logo.png'
 
 const recentPosts = await getPosts(6)
+const libraries = await getListingLibraries()
 ---
 
 <Layout bare path="/">
@@ -32,6 +34,7 @@ const recentPosts = await getPosts(6)
         width={96}
         height={96}
         densities={[1, 2]}
+        loading="eager"
       />
       <h1>七罪的手账本。</h1>
       <p class="motto">La vida no tiene precio.</p>
@@ -55,32 +58,44 @@ const recentPosts = await getPosts(6)
           <a class="more" href={getNavLink('/posts')}>全部文章 →</a>
         </section>
 
-        <a class="card card-explore" href={getNavLink('/explore')}>
-          <h2>探索</h2>
-          <p>在看的书、动画与电影，附一句短评。</p>
-          <span class="more">翻开清单 →</span>
-        </a>
+        {
+          libraries.length > 0 && (
+            <div class="library-stack">
+              {libraries.map((library) => (
+                <a class="card card-library" href={getNavLink(library.Path)}>
+                  <h2>{library.Name}</h2>
+                  {library.Description && <p>{library.Description}</p>}
+                  <span class="more">翻开清单 →</span>
+                </a>
+              ))}
+            </div>
+          )
+        }
       </div>
 
       <nav class="entries" aria-label="相关入口">
         <a href={getNavLink('/posts')}>
-          <Icon name="ph:article-light" />
+          <Icon name="ph:article-light" aria-hidden="true" />
           仓库
         </a>
-        <a href="https://github.com/Tanya7z" target="_blank" rel="noreferrer">
-          <Icon name="ph:github-logo-light" />
+        <a
+          href="https://github.com/Tanya7z"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Icon name="ph:github-logo-light" aria-hidden="true" />
           GitHub
         </a>
         <a href="mailto:hi@ovo7.cc">
-          <Icon name="ph:envelope-simple-light" />
+          <Icon name="ph:envelope-simple-light" aria-hidden="true" />
           hi@ovo7.cc
         </a>
         <a
           href="https://space.bilibili.com/455301292"
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
         >
-          <Icon name="ph:television" />
+          <Icon name="ph:television" aria-hidden="true" />
           Bilibili
         </a>
       </nav>
@@ -187,11 +202,20 @@ const recentPosts = await getPosts(6)
 
   /* ===== 扉页拼贴板 ===== */
   .pinboard {
+    --pinboard-gap: 1.6rem;
     display: grid;
     grid-template-columns: 1.35fr 1fr;
-    align-items: start;
-    gap: 1.6rem;
+    align-items: stretch;
+    gap: var(--pinboard-gap);
     margin-top: 2.6rem;
+  }
+
+  /* 清单卡叠在文章右侧，整列拉到与文章卡同高，空隙均分到各卡之间 */
+  .library-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pinboard-gap);
+    min-width: 0;
   }
 
   .card {
@@ -248,14 +272,25 @@ const recentPosts = await getPosts(6)
     color: var(--muted);
   }
 
-  .card-explore p {
+  .card-library {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card-library p {
     margin: 0;
     color: var(--muted);
     font-size: 1.15rem;
     line-height: 1.6;
   }
 
-  .card-explore:hover {
+  .card-library .more {
+    margin-top: auto;
+    padding-top: 0.9rem;
+  }
+
+  .card-library:hover {
     background: var(--soft);
   }
 
@@ -273,8 +308,8 @@ const recentPosts = await getPosts(6)
 
   @media (max-width: 640px) {
     .pinboard {
+      --pinboard-gap: 2rem;
       grid-template-columns: 1fr;
-      gap: 2rem;
     }
 
     .cover {

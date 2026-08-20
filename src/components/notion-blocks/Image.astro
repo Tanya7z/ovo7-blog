@@ -39,10 +39,22 @@ const toggleId = `mn-img-${block.Id}`
         {image &&
           (ENABLE_LIGHTBOX ? (
             <a data-fslightbox href={image} data-type="image">
-              <img src={image} alt={alt} loading="lazy" />
+              <img
+                src={image}
+                alt={alt}
+                loading="lazy"
+                decoding="async"
+                data-image-component="true"
+              />
             </a>
           ) : (
-            <img src={image} alt={alt} loading="lazy" />
+            <img
+              src={image}
+              alt={alt}
+              loading="lazy"
+              decoding="async"
+              data-image-component="true"
+            />
           ))}
         <Caption richTexts={displayTexts} layout="margin" />
       </span>
@@ -52,10 +64,22 @@ const toggleId = `mn-img-${block.Id}`
       {image &&
         (ENABLE_LIGHTBOX ? (
           <a data-fslightbox href={image} data-type="image">
-            <img src={image} alt={alt} loading="lazy" />
+            <img
+              src={image}
+              alt={alt}
+              loading="lazy"
+              decoding="async"
+              data-image-component="true"
+            />
           </a>
         ) : (
-          <img src={image} alt={alt} loading="lazy" />
+          <img
+            src={image}
+            alt={alt}
+            loading="lazy"
+            decoding="async"
+            data-image-component="true"
+          />
         ))}
       <Caption richTexts={displayTexts} layout={layout} />
     </figure>

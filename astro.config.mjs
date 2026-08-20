@@ -8,7 +8,7 @@ import FeaturedImageDownloader from './src/integrations/featured-image-downloade
 import NotionMediaDownloader from './src/integrations/notion-media-downloader';
 import PublicNotionCopier from './src/integrations/public-notion-copier';
 import { getAllStickers } from './src/lib/notion/stickers';
-import { getExploreEntries } from './src/lib/notion/explore';
+import { getListingLibraries } from './src/lib/notion/libraries';
 import { getTracks } from './src/lib/notion/music';
 
 const getSite = function () {
@@ -64,8 +64,10 @@ export default defineConfig({
     NotionMediaDownloader('sticker-image-downloader', async () =>
       (await getAllStickers()).map((sticker) => sticker.Image)
     ),
-    NotionMediaDownloader('explore-cover-downloader', async () =>
-      (await getExploreEntries()).map((entry) => entry.Cover)
+    NotionMediaDownloader('listing-image-downloader', async () =>
+      (await getListingLibraries()).flatMap((library) =>
+        library.Entries.map((entry) => entry.Image)
+      )
     ),
     // 音频同样是 Notion 托管的带签名链接，必须构建期落地；
     // downloader 只按 FileObject 工作，音频复用这一处逻辑即可

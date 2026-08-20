@@ -1,0 +1,51 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import CollageBoard from '../../components/CollageBoard.astro'
+import {
+  EXPLORE_LIBRARY_SLUG,
+  getListingLibraries,
+  groupByCollection,
+} from '../../lib/notion/libraries.ts'
+import type { ListingLibrary } from '../../lib/interfaces.ts'
+
+export async function getStaticPaths() {
+  const libraries = await getListingLibraries()
+  return libraries
+    .filter((library) => library.Slug !== EXPLORE_LIBRARY_SLUG)
+    .map((library) => ({
+      params: { slug: library.Slug },
+      props: { library },
+    }))
+}
+
+interface Props {
+  library: ListingLibrary
+}
+
+const { library } = Astro.props
+const groups = groupByCollection(library.Entries)
+---
+
+<Layout
+  title={library.Name}
+  description={library.Description}
+  path={library.Path}
+>
+  <div slot="main">
+    <h1>{library.Name}</h1>
+    {
+      library.Description && (
+        <p class="lede">{library.Description}</p>
+      )
+    }
+
+    <CollageBoard groups={groups} />
+  </div>
+</Layout>
+
+<style>
+  .lede {
+    width: var(--text-width);
+    color: var(--muted);
+  }
+</style>

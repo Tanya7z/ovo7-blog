@@ -24,7 +24,10 @@ const stickers = await getStickers(collection)
       data-random-layout={layout === 'scatter' ? '' : undefined}
     >
       {stickers.map((sticker) => (
-        <Sticker sticker={sticker} />
+        <Sticker
+          sticker={sticker}
+          loading={layout === 'scatter' ? 'eager' : 'lazy'}
+        />
       ))}
     </ul>
   )

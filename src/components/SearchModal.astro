@@ -3,6 +3,7 @@ import { Icon } from 'astro-icon/components'
 ---
 
 <div
+  id="search-modal"
   class="search-modal-container"
   role="dialog"
   aria-modal="true"
@@ -20,7 +21,7 @@ import { Icon } from 'astro-icon/components'
         data-close-search
         aria-label="关闭搜索"
         title="关闭搜索"
-      ><Icon name="ph:x-light" /></button>
+      ><Icon name="ph:x-light" aria-hidden="true" /></button>
     </div>
     <div class="search-prompt">
       <input

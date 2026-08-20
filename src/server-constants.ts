@@ -158,6 +158,12 @@ export const CUSTOM_DOMAIN =
   import.meta.env.CUSTOM_DOMAIN || process.env.CUSTOM_DOMAIN || ''
 export const BASE_PATH =
   import.meta.env.BASE_PATH || process.env.BASE_PATH || ''
+/** 图床源站。有值时 Notion/镜像资源走 https://img.ovo7.cc/blog/... */
+export const MEDIA_ORIGIN = (
+  import.meta.env.MEDIA_ORIGIN ||
+  process.env.MEDIA_ORIGIN ||
+  ''
+).replace(/\/$/, '')
 
 export const PUBLIC_GA_TRACKING_ID =
   import.meta.env.PUBLIC_GA_TRACKING_ID || process.env.PUBLIC_GA_TRACKING_ID

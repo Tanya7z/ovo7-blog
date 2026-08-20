@@ -13,6 +13,12 @@ const { Engine, Runner, Bodies, Body, Composite, Events } = Matter
 const FALL_DELAY_MS = 1000
 const MAX_SPEED = 36
 const MAX_SPIN = 0.32
+/** 低于此速度视为静止，避免微抖触发镜头跟随 */
+const REST_SPEED = 0.18
+/** 只有下落中的贴纸才值得镜头跟随 */
+const FOLLOW_MIN_SPEED = 1.6
+/** 用户手动滚动后，暂停自动跟镜的时长 */
+const USER_SCROLL_COOLDOWN_MS = 1800
 const CAT_STICKER = 0x0002
 const CAT_FOOTER = 0x0004
 const CAT_BOUND = 0x0008
@@ -43,6 +49,8 @@ let bounds: Matter.Body[] = []
 const actors: Actor[] = []
 const pending = new WeakSet<HTMLElement>()
 const unlockQueue = new Map<Matter.Body, Matter.Body>()
+let userScrollUntil = 0
+let programmaticScroll = false
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -310,6 +318,23 @@ function queueUnlock(footer: Matter.Body, sticker: Matter.Body): void {
   }
 }
 
+function noteUserScroll(): void {
+  if (programmaticScroll) {
+    return
+  }
+  userScrollUntil = performance.now() + USER_SCROLL_COOLDOWN_MS
+}
+
+function bindUserScrollGuard(): void {
+  if (document.documentElement.dataset.physicsScrollGuard) {
+    return
+  }
+  document.documentElement.dataset.physicsScrollGuard = '1'
+  const opts: AddEventListenerOptions = { passive: true, capture: true }
+  window.addEventListener('wheel', noteUserScroll, opts)
+  window.addEventListener('touchmove', noteUserScroll, opts)
+}
+
 function clampVelocities(): void {
   for (const actor of actors) {
     const { x, y } = actor.body.velocity
@@ -328,30 +353,52 @@ function clampVelocities(): void {
     if (speed > MAX_SPEED) {
       const scale = MAX_SPEED / speed
       Body.setVelocity(actor.body, { x: x * scale, y: y * scale })
+    } else if (speed < REST_SPEED) {
+      Body.setVelocity(actor.body, { x: 0, y: 0 })
+      Body.setAngularVelocity(actor.body, 0)
     }
     // 小标点惯量太小，被撞一下能转出十几圈，收一下看着才像纸片
     const spin = actor.body.angularVelocity
     if (Math.abs(spin) > MAX_SPIN) {
       Body.setAngularVelocity(actor.body, Math.sign(spin) * MAX_SPIN)
+    } else if (Math.abs(spin) < 0.02) {
+      Body.setAngularVelocity(actor.body, 0)
     }
   }
 }
 
 function followStickers(): void {
+  if (performance.now() < userScrollUntil) {
+    return
+  }
+
   const originTop = ensureLayer().getBoundingClientRect().top
   let target = 0
+  let hasActiveFall = false
   for (const actor of actors) {
-    if (actor.kind !== 'sticker' || actor.body.speed < 0.8) {
+    if (
+      actor.kind !== 'sticker' ||
+      !actor.el.classList.contains('is-falling')
+    ) {
       continue
     }
+    if (actor.body.speed < FOLLOW_MIN_SPEED) {
+      continue
+    }
+    hasActiveFall = true
     const viewY = originTop + actor.body.position.y
     if (viewY > target) {
       target = viewY
     }
   }
-  if (target > window.innerHeight * 0.7) {
-    window.scrollBy(0, Math.min(36, target - window.innerHeight * 0.58))
+  if (!hasActiveFall || target <= window.innerHeight * 0.7) {
+    return
   }
+  programmaticScroll = true
+  window.scrollBy(0, Math.min(36, target - window.innerHeight * 0.58))
+  requestAnimationFrame(() => {
+    programmaticScroll = false
+  })
 }
 
 function ensureWorld(): Matter.Engine {
@@ -360,6 +407,7 @@ function ensureWorld(): Matter.Engine {
   }
 
   document.documentElement.classList.add('physics-running')
+  bindUserScrollGuard()
 
   const created = Engine.create({ enableSleeping: false })
   created.gravity.y = 1

@@ -34,15 +34,21 @@ const tracks = (await getTracks())
           aria-label="播放"
         >
           {/* 按钮显示的是「按下去会发生什么」：停着时给音符，放着时给休止符 */}
-          <span class="score-mark" data-score-glyph="play" aria-hidden="true">
-            ♪
-          </span>
-          <span
-            class="score-mark is-rest is-hidden"
-            data-score-glyph="pause"
-            aria-hidden="true"
-          >
-            𝄽
+          <span class="score-play-inner">
+            <span class="score-mark" data-score-glyph="play" aria-hidden="true">
+              ♪
+            </span>
+            <span
+              class="score-mark is-rest is-hidden"
+              data-score-glyph="pause"
+              aria-hidden="true"
+            >
+              𝄽
+            </span>
+            <span class="score-play-label" data-score-label="play">播放</span>
+            <span class="score-play-label is-hidden" data-score-label="pause">
+              暂停
+            </span>
           </span>
         </button>
         <button
@@ -202,10 +208,6 @@ const tracks = (await getTracks())
       'Noto Music', serif;
   }
 
-  .is-hidden {
-    display: none;
-  }
-
   /* 收起后只剩一行标题条 */
   .score-player.is-collapsed .score-panel {
     display: none;
@@ -224,35 +226,11 @@ const tracks = (await getTracks())
     border-bottom: 0;
   }
 
-  .score-play {
-    display: inline-flex;
-    width: 1.5em;
-    height: 1.6em;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--ink);
-    cursor: pointer;
-  }
-
-  .score-play:hover {
-    color: var(--warm);
-  }
-
-  /* 音符与休止符来自不同字体、天生不一样大，各自校准到看着等重 */
-  .score-mark {
-    font-family: var(--score-music-font);
-    font-size: 1.35rem;
-    line-height: 1;
-  }
-
-  .score-mark.is-rest {
-    font-size: 1.6rem;
-  }
-
+  /* 顶栏文字按钮：与「收起」同一套正文字体、字号、灰墨 hover */
+  .score-play,
   .score-toggle {
+    display: inline-flex;
+    align-items: center;
     padding: 2px 0;
     border: 0;
     background: none;
@@ -262,8 +240,52 @@ const tracks = (await getTracks())
     cursor: pointer;
   }
 
+  .score-play:hover,
   .score-toggle:hover {
     color: var(--ink);
+  }
+
+  .score-play:hover .score-mark {
+    color: var(--warm);
+  }
+
+  .score-play-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2em;
+  }
+
+  .score-play-label {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* 符号盒子贴着字形走，才能和「播放 / 暂停」共用一条中轴线 */
+  .score-mark {
+    display: inline-flex;
+    width: 1em;
+    height: 1em;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    color: var(--ink);
+    font-family: var(--score-music-font);
+    font-size: 1.35rem;
+    line-height: 1;
+  }
+
+  .score-mark.is-rest {
+    font-size: 1.6rem;
+    /* 休止符墨水偏下，往上挪一点才和汉字视觉中心对齐 */
+    transform: translateY(-0.08em);
+  }
+
+  /* 必须压过 .score-mark { display: inline-flex }，否则两个状态会同时露出来 */
+  .is-hidden {
+    display: none;
   }
 
   .score-panel {
@@ -601,6 +623,8 @@ const tracks = (await getTracks())
     const playButton = root.querySelector<HTMLButtonElement>('[data-score-play]')!
     const playGlyph = root.querySelector<HTMLElement>('[data-score-glyph="play"]')!
     const pauseGlyph = root.querySelector<HTMLElement>('[data-score-glyph="pause"]')!
+    const playLabel = root.querySelector<HTMLElement>('[data-score-label="play"]')!
+    const pauseLabel = root.querySelector<HTMLElement>('[data-score-label="pause"]')!
     const toggle = root.querySelector<HTMLButtonElement>('[data-score-toggle]')!
     const toggleText = root.querySelector<HTMLElement>('[data-score-toggle-text]')!
     const dynamics = Array.from(
@@ -688,12 +712,10 @@ const tracks = (await getTracks())
       const playing = !audio.paused && !audio.ended
       playGlyph.classList.toggle('is-hidden', playing)
       pauseGlyph.classList.toggle('is-hidden', !playing)
+      playLabel.classList.toggle('is-hidden', playing)
+      pauseLabel.classList.toggle('is-hidden', !playing)
       playButton.setAttribute('aria-label', playing ? '暂停' : '播放')
-      // 顺手解释一下那个字形是什么，免得只认识三角形的人一脸问号
-      playButton.setAttribute(
-        'title',
-        playing ? '暂停 · 休止符 𝄽' : '播放 · 音符 ♪'
-      )
+      playButton.setAttribute('title', playing ? '暂停' : '播放')
     }
 
     /** 把指针横坐标换算成 0～1 的进度；SVG 会被 CSS 拉伸，得按比例折算。 */

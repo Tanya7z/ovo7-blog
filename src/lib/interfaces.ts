@@ -53,6 +53,35 @@ export interface ExploreEntry {
   Cover: FileObject | null
 }
 
+/** 符合四字段契约的清单库（探索、映画及以后复制的库）。 */
+export interface ListingLibrary {
+  DatabaseId: string
+  DataSourceId: string
+  Name: string
+  Description: string
+  Slug: string
+  Path: string
+  Entries: LibraryEntry[]
+}
+
+/** 清单库里的一条：拼贴上有状态/评分就显示，没有就省略。 */
+export interface LibraryEntry {
+  PageId: string
+  Name: string
+  Collection: string
+  Status: string
+  Score: number | null
+  Author: string
+  Place: string
+  Date: string
+  Image: FileObject | null
+}
+
+export interface LibraryGroup {
+  collection: string
+  entries: LibraryEntry[]
+}
+
 /** 「曲库」里的一首曲子，供全站常驻播放器按 Order 顺序播放。 */
 export interface Track {
   PageId: string

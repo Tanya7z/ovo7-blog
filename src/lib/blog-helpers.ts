@@ -9,15 +9,22 @@ import type {
   Column,
 } from './interfaces'
 import {
+  mirroredAssetPublicPath,
+  mirroredAssetReady,
+} from './external-asset-mirror'
+import { mediaPath } from './media-url'
+import {
   notionLocalFileReady,
   resolveNotionFilename,
 } from './notion/media-file'
 import { pathJoin } from './utils'
 
+export { mediaPath }
+
 export const filePath = (url: URL): string => {
   const [dir, rawName] = url.pathname.split('/').slice(-2)
   const filename = resolveNotionFilename(dir, decodeURIComponent(rawName))
-  return pathJoin(BASE_PATH, `/notion/${dir}/${filename}`)
+  return mediaPath(`/notion/${dir}/${filename}`)
 }
 
 /**
@@ -25,7 +32,7 @@ export const filePath = (url: URL): string => {
  *   1. 以 / 开头的站内静态文件（mock 内容用）
  *   2. Notion 托管文件——构建期由 NotionMediaDownloader 落到 public/notion/，
  *      开发态还没落地时退回 Notion 原链（带签名，会过期，但够本地看）
- *   3. 外链——本来就稳定，原样返回
+ *   3. 外链——构建期若已镜像到 public/mirror/ 则走同域，否则退回原链
  */
 export const resolveNotionAssetUrl = (
   file: FileObject | null | undefined
@@ -37,6 +44,9 @@ export const resolveNotionAssetUrl = (
     return getStaticFilePath(file.Url)
   }
   if (file.Type !== 'file') {
+    if (mirroredAssetReady(file.Url)) {
+      return mirroredAssetPublicPath(file.Url)
+    }
     return file.Url
   }
 

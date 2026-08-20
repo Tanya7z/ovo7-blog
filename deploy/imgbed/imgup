@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# 同机拷到图床，或带 token 远程上传。
+# 用法：imgup <bucket> <本地文件> [远端文件名]
+set -euo pipefail
+
+ORIGIN="${IMGBED_ORIGIN:-https://img.ovo7.cc}"
+ROOT="${IMGBED_ROOT:-/var/www/img.ovo7.cc}"
+TOKEN_FILE="${IMGBED_TOKENS:-/etc/imgbed/tokens.json}"
+
+bucket="${1:-}"
+src="${2:-}"
+remote_name="${3:-}"
+
+if [[ -z "${bucket}" || -z "${src}" ]]; then
+  echo "用法：imgup <bucket> <本地文件> [远端文件名]" >&2
+  exit 1
+fi
+if [[ ! -f "${src}" ]]; then
+  echo "找不到文件：${src}" >&2
+  exit 1
+fi
+if [[ ! "${bucket}" =~ ^[a-z0-9][a-z0-9-]{0,31}$ ]]; then
+  echo "bucket 只能是小写字母、数字、短横线" >&2
+  exit 1
+fi
+
+name="${remote_name:-$(basename "${src}")}"
+
+if [[ -d "${ROOT}" && -w "${ROOT}" ]]; then
+  dest_dir="${ROOT}/${bucket}"
+  mkdir -p "${dest_dir}"
+  cp -f "${src}" "${dest_dir}/${name}"
+  chmod 0644 "${dest_dir}/${name}"
+  echo "${ORIGIN}/${bucket}/${name}"
+  exit 0
+fi
+
+token="${IMG_TOKEN:-}"
+if [[ -z "${token}" && -f "${TOKEN_FILE}" ]]; then
+  token="$(python3 - "${TOKEN_FILE}" "${bucket}" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+bucket = sys.argv[2]
+for row in data.get("tokens", []):
+    buckets = row.get("buckets") or []
+    if bucket in buckets or "*" in buckets:
+        print(row["token"])
+        break
+PY
+)"
+fi
+if [[ -z "${token}" ]]; then
+  echo "没有写权限，也没有 IMG_TOKEN。" >&2
+  exit 1
+fi
+
+curl -fsS \
+  -H "Authorization: Bearer ${token}" \
+  -F "bucket=${bucket}" \
+  -F "name=${name}" \
+  -F "file=@${src}" \
+  "${ORIGIN}/api/upload" | python3 -c 'import json,sys; print(json.load(sys.stdin)["url"])'

@@ -111,6 +111,7 @@ const siteOGImage = new URL(
                   width={36}
                   height={36}
                   densities={[1, 2]}
+                  loading="eager"
                 />
                 <span class="brand-title">{database.Title}</span>
               </a>
@@ -118,7 +119,15 @@ const siteOGImage = new URL(
                 <a href={getNavLink('/')}>首页</a>
                 <a href={getNavLink('/posts')}>文章</a>
                 <a href={getNavLink('/explore')}>探索</a>
-                <a class="search-button open-search-modal">检索</a>
+                <button
+                  class="search-button open-search-modal"
+                  type="button"
+                  aria-expanded="false"
+                  aria-haspopup="dialog"
+                  aria-controls="search-modal"
+                >
+                  检索
+                </button>
               </nav>
             </div>
           </div>
@@ -155,7 +164,7 @@ const siteOGImage = new URL(
         <span aria-hidden="true">·</span>
         <a href={getNavLink('/feed')} data-astro-reload>RSS</a>
         <span aria-hidden="true">·</span>
-        <a href="https://ovo7.cc" target="_blank" rel="noreferrer">主站</a>
+        <a href="https://ovo7.cc" target="_blank" rel="noopener noreferrer">主站</a>
         <span aria-hidden="true">·</span>
         <a href="mailto:hi@ovo7.cc">hi@ovo7.cc</a>
       </div>
@@ -254,14 +263,25 @@ const siteOGImage = new URL(
     gap: 18px;
   }
 
-  .site-nav > a {
+  .site-nav > a,
+  .site-nav > .search-button {
     color: var(--muted);
     font-size: 1.1rem;
     cursor: pointer;
   }
 
-  .site-nav > a:hover {
+  .site-nav > a:hover,
+  .site-nav > .search-button:hover {
     color: var(--ink);
+  }
+
+  .search-button {
+    margin: 0;
+    border: 0;
+    padding: 0;
+    background: none;
+    font: inherit;
+    font-size: 1.1rem;
   }
 
   .bare-main {

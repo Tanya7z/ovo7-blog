@@ -57,7 +57,13 @@ const toggleId = asSidenote ? `sn-${block.Id}` : `mn-${block.Id}`
           {interfaces.isEmojiIcon(callout.Icon) ? (
             callout.Icon.Emoji
           ) : interfaces.isExternalIcon(callout.Icon) ? (
-            <img src={callout.Icon.Url} alt="Icon in a callout block" />
+            <img
+              src={callout.Icon.Url}
+              alt=""
+              width="24"
+              height="24"
+              data-image-component="true"
+            />
           ) : null}
         </div>
       )}

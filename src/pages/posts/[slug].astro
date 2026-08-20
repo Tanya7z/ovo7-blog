@@ -117,7 +117,7 @@ if (hasCover && coverSource?.Url) {
           post.Icon && interfaces.isEmojiIcon(post.Icon) ? (
             <span class="title-icon">{post.Icon.Emoji}</span>
           ) : post.Icon && interfaces.isExternalIcon(post.Icon) ? (
-            <img class="title-icon" src={post.Icon.Url} alt="" />
+            <img class="title-icon" src={post.Icon.Url} alt="" width="24" height="24" data-image-component="true" />
           ) : null
         }
         {post.Title}

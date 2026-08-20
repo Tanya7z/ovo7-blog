@@ -35,16 +35,36 @@ export const STICKER_DEFAULTS = {
   enabled: '启用',
 };
 
-// 「探索」库字段名。收藏条目（阅读/动画/电影）与文章分库存放，字段各自独立。
-export const EXPLORE_DEFAULTS = {
+// 清单库（探索、映画及以后复制的库）与贴画共用的入场券。
+// 网站只认这四个字段；多出来的列互不干扰。
+export const LIBRARY_DEFAULTS = {
   title: '名称',
-  type: '类型',
-  cover: '封面',
+  image: '图片',
+  collection: '集合',
+  enabled: '启用',
   status: '状态',
   score: '评分',
   author: '作者',
   place: '地点',
   date: '日期',
+  bangumiId: 'Bangumi ID',
+};
+
+// 「探索」库字段名。收藏条目（阅读/动画/电影）与文章分库存放，字段各自独立。
+// type / cover 保留别名，指向「集合」/「图片」，避免旧调用读到已改名的列。
+export const EXPLORE_DEFAULTS = {
+  title: LIBRARY_DEFAULTS.title,
+  type: LIBRARY_DEFAULTS.collection,
+  cover: LIBRARY_DEFAULTS.image,
+  collection: LIBRARY_DEFAULTS.collection,
+  image: LIBRARY_DEFAULTS.image,
+  enabled: LIBRARY_DEFAULTS.enabled,
+  status: LIBRARY_DEFAULTS.status,
+  score: LIBRARY_DEFAULTS.score,
+  author: LIBRARY_DEFAULTS.author,
+  place: LIBRARY_DEFAULTS.place,
+  date: LIBRARY_DEFAULTS.date,
+  bangumiId: LIBRARY_DEFAULTS.bangumiId,
 };
 
 // 「曲库」字段名。全站常驻播放器的曲目来源，与文章、贴画分库存放。

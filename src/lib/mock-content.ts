@@ -2,6 +2,8 @@ import type {
   Block,
   Database,
   ExploreEntry,
+  LibraryEntry,
+  ListingLibrary,
   Post,
   RichText,
   Sticker,
@@ -273,6 +275,65 @@ export const MOCK_EXPLORE_ENTRIES: ExploreEntry[] = [
     Place: '',
     Date: '2026-05-30',
     Cover: null,
+  },
+]
+
+function mockExploreAsLibraryEntry(entry: ExploreEntry): LibraryEntry {
+  return {
+    PageId: entry.PageId,
+    Name: entry.Name,
+    Collection: entry.Type,
+    Status: entry.Status,
+    Score: entry.Score,
+    Author: entry.Author,
+    Place: entry.Place,
+    Date: entry.Date,
+    Image: entry.Cover,
+  }
+}
+
+// mock 清单库：探索沿用上面的条目；映画用来自检首页第二张入口卡。
+export const MOCK_LISTING_LIBRARIES: ListingLibrary[] = [
+  {
+    DatabaseId: 'mock-explore-db',
+    DataSourceId: 'mock-explore-ds',
+    Name: '探索',
+    Description: '在看的书、动画与电影，附一句短评。',
+    Slug: 'explore',
+    Path: '/explore',
+    Entries: MOCK_EXPLORE_ENTRIES.map(mockExploreAsLibraryEntry),
+  },
+  {
+    DatabaseId: 'mock-eiga-db',
+    DataSourceId: 'mock-eiga-ds',
+    Name: '映画',
+    Description: '海报与剧照，按集合翻。',
+    Slug: '映画',
+    Path: '/l/映画',
+    Entries: [
+      {
+        PageId: 'mock-eiga-1',
+        Name: '千与千寻',
+        Collection: '吉卜力',
+        Status: '',
+        Score: null,
+        Author: '',
+        Place: '',
+        Date: '2026-04-12',
+        Image: { Type: 'external', Url: '/logo.png' },
+      },
+      {
+        PageId: 'mock-eiga-2',
+        Name: '你的名字。',
+        Collection: '新海诚',
+        Status: '',
+        Score: null,
+        Author: '',
+        Place: '',
+        Date: '2026-03-08',
+        Image: { Type: 'external', Url: '/favicon.png' },
+      },
+    ],
   },
 ]
 

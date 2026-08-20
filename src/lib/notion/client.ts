@@ -398,38 +398,90 @@ export async function getAllTags(): Promise<SelectProperty[]> {
     )
 }
 
+function _sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Notion S3 常见的瞬时断线：连接被对端重置、undici 报 terminated、我们自己的超时 abort。 */
+function _isRetryableDownloadError(err: unknown): boolean {
+  if (!(err instanceof Error)) {
+    return false
+  }
+  if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+    return true
+  }
+  if (
+    err.name === 'TypeError' &&
+    /terminated|fetch failed/i.test(err.message)
+  ) {
+    return true
+  }
+  const code =
+    (err as { code?: string }).code ||
+    (err as { cause?: { code?: string } }).cause?.code
+  return (
+    code === 'ECONNRESET' ||
+    code === 'ECONNREFUSED' ||
+    code === 'ETIMEDOUT' ||
+    code === 'EPIPE' ||
+    code === 'UND_ERR_SOCKET' ||
+    code === 'UND_ERR_ABORTED'
+  )
+}
+
 export async function downloadFile(url: URL) {
   // dev/SSR 每次进文都会走到这里；本地已有就别再打 Notion/S3
   if (notionLocalFileReady(url)) {
     return
   }
 
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  // 清单库大截图 / GIF 走 Notion 签名 S3，并行过多会被对端掐连接。
+  // 超时仍盖住整包读取，避免 arrayBuffer 阶段无限挂起。
+  const downloadTimeoutMs = Math.max(REQUEST_TIMEOUT_MS, 60000)
+  const maxAttempts = 3
+  let buf: Buffer | undefined
 
-  let buf!: Buffer
-  try {
-    const res = await fetch(url.toString(), {
-      method: 'GET',
-      signal: controller.signal,
-    })
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), downloadTimeoutMs)
+    try {
+      const res = await fetch(url.toString(), {
+        method: 'GET',
+        signal: controller.signal,
+      })
 
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`)
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`)
+      }
+
+      if (!res.body) {
+        throw new Error('Response body is null')
+      }
+
+      buf = Buffer.from(await res.arrayBuffer())
+      break
+    } catch (err) {
+      const retryable = _isRetryableDownloadError(err)
+      if (retryable && attempt < maxAttempts) {
+        console.log(
+          `[downloadFile] 下载中断，${400 * attempt}ms 后重试 ${url.pathname}`
+        )
+        await _sleep(400 * attempt)
+        continue
+      }
+      if (retryable) {
+        console.log(`[downloadFile] 多次中断，放弃 ${url.pathname}`)
+        return
+      }
+      console.log(err)
+      return
+    } finally {
+      clearTimeout(timeoutId)
     }
+  }
 
-    if (!res.body) {
-      throw new Error('Response body is null')
-    }
-
-    // 超时必须盖住整包读取：旧逻辑在拿到 headers 后就 clearTimeout，
-    // 大 GIF / 慢 S3 会在 arrayBuffer 阶段无限挂起。
-    buf = Buffer.from(await res.arrayBuffer())
-  } catch (err) {
-    console.log(err)
+  if (!buf) {
     return
-  } finally {
-    clearTimeout(timeoutId)
   }
 
   const dir = './public/notion/' + url.pathname.split('/').slice(-2)[0]
@@ -579,6 +631,148 @@ export async function resolveDataSourceId(
   // 传入的 id 也可能本身就是 data source
   await _getDataSource(databaseId)
   return databaseId
+}
+
+function _plainJoin(texts?: { plain_text: string }[] | null): string {
+  return (texts || []).map((text) => text.plain_text).join('')
+}
+
+/** 比较 Notion ID 时去掉连字符，避免 database id 与 block id 写法不一致。 */
+export function normalizeNotionId(id: string): string {
+  return id.replace(/-/g, '').toLowerCase()
+}
+
+export type NeighborDatabase = {
+  databaseId: string
+  dataSourceId: string
+  title: string
+  description: string
+  properties: Record<string, { type: string; name: string }>
+}
+
+/** 读某个 database；404 / 已删返回 null，其它错误抛给调用方。 */
+export async function retrieveDatabase(
+  databaseId: string
+): Promise<responses.RetrieveDatabaseResponse | null> {
+  try {
+    const dbResponse = (await client.databases.retrieve({
+      database_id: databaseId,
+    })) as responses.RetrieveDatabaseResponse
+    if (!dbResponse || dbResponse.in_trash) {
+      return null
+    }
+    return dbResponse
+  } catch (error: unknown) {
+    if (error instanceof APIResponseError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+async function listChildDatabaseIds(
+  pageId: string
+): Promise<{ id: string; title: string }[]> {
+  const params: requestParams.RetrieveBlockChildren = {
+    block_id: pageId,
+    page_size: 100,
+  }
+  const children: { id: string; title: string }[] = []
+
+  while (true) {
+    const res = await retry(
+      async (bail) => {
+        try {
+          return (await client.blocks.children.list(
+            params as any // eslint-disable-line @typescript-eslint/no-explicit-any
+          )) as responses.RetrieveBlockChildrenResponse
+        } catch (error: unknown) {
+          if (error instanceof APIResponseError) {
+            if (error.status && error.status >= 400 && error.status < 500) {
+              bail(error)
+            }
+          }
+          throw error
+        }
+      },
+      {
+        retries: numberOfRetry,
+      }
+    )
+
+    for (const block of res.results) {
+      if (block.type === 'child_database') {
+        children.push({
+          id: block.id,
+          title: block.child_database?.title || '',
+        })
+      }
+    }
+
+    if (!res.has_more) {
+      break
+    }
+    params.start_cursor = res.next_cursor as string
+  }
+
+  return children
+}
+
+/**
+ * 列出某库所在页面上的同级子库（含自己），并带上 schema。
+ * 未分享给 integration 的库会跳过，不拖垮构建。
+ */
+export async function listNeighborDatabases(
+  seedDatabaseId: string
+): Promise<NeighborDatabase[]> {
+  if (!seedDatabaseId) {
+    return []
+  }
+
+  const seed = await retrieveDatabase(seedDatabaseId)
+  if (!seed) {
+    return []
+  }
+
+  const parentPageId = seed.parent?.page_id
+  const childIds = parentPageId
+    ? await listChildDatabaseIds(parentPageId)
+    : [{ id: seed.id, title: _plainJoin(seed.title) }]
+
+  const results: NeighborDatabase[] = []
+  for (const child of childIds) {
+    try {
+      const db = await retrieveDatabase(child.id)
+      if (!db) {
+        continue
+      }
+      const dsId = db.data_sources?.[0]?.id
+      if (!dsId) {
+        continue
+      }
+      const ds = await _getDataSource(dsId)
+      if (ds.in_trash) {
+        continue
+      }
+
+      const properties: Record<string, { type: string; name: string }> = {}
+      for (const [name, prop] of Object.entries(ds.properties || {})) {
+        properties[name] = { type: prop.type, name: prop.name || name }
+      }
+
+      results.push({
+        databaseId: db.id,
+        dataSourceId: ds.id,
+        title: _plainJoin(ds.title) || _plainJoin(db.title) || child.title,
+        description: _plainJoin(ds.description) || _plainJoin(db.description),
+        properties,
+      })
+    } catch (error: unknown) {
+      console.warn('[libraries] 跳过无法读取的子库', child.id, error)
+    }
+  }
+
+  return results
 }
 
 /**

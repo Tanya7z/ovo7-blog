@@ -33,15 +33,32 @@ export const STICKER_DEFAULTS: {
   enabled: string;
 };
 
-export const EXPLORE_DEFAULTS: {
+export const LIBRARY_DEFAULTS: {
   title: string;
-  type: string;
-  cover: string;
+  image: string;
+  collection: string;
+  enabled: string;
   status: string;
   score: string;
   author: string;
   place: string;
   date: string;
+  bangumiId: string;
+};
+
+export const EXPLORE_DEFAULTS: {
+  title: string;
+  type: string;
+  cover: string;
+  collection: string;
+  image: string;
+  enabled: string;
+  status: string;
+  score: string;
+  author: string;
+  place: string;
+  date: string;
+  bangumiId: string;
 };
 
 export const MUSIC_DEFAULTS: {

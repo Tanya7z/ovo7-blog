@@ -1,0 +1,20 @@
+[Unit]
+Description=img.ovo7.cc upload API
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+Environment=IMGBED_ROOT=/var/www/img.ovo7.cc
+Environment=IMGBED_TOKENS=/etc/imgbed/tokens.json
+Environment=IMGBED_ORIGIN=https://img.ovo7.cc
+Environment=IMGBED_LISTEN=127.0.0.1:3922
+Environment=PATH=/opt/ovo7-node/bin:/usr/bin
+ExecStart=/opt/ovo7-node/bin/node /opt/imgbed/server.mjs
+Restart=on-failure
+RestartSec=2
+UMask=0022
+
+[Install]
+WantedBy=multi-user.target

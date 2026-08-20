@@ -13,9 +13,11 @@ import '../styles/sticker.css'
 
 export interface Props {
   sticker: Sticker
+  /** 散落在首屏的贴画用 eager，避免 audit 报「首屏却 lazy」。 */
+  loading?: 'lazy' | 'eager'
 }
 
-const { sticker } = Astro.props
+const { sticker, loading = 'lazy' } = Astro.props
 
 /**
  * 三种来源：站内静态文件（mock）、Notion 托管文件（构建期已落地）、外链图片。
@@ -105,12 +107,9 @@ const tipId = `sticker-tip-${sticker.PageId}`
       style={style}
       data-locked-rotate={sticker.Rotation === null ? undefined : ''}
     >
-      {/* tabindex 让触屏点一下也能触发 :focus-within，不用写 JS */}
-      <figure
-        class:list={['polaroid', { tippable: !!tip }]}
-        tabindex={tip ? 0 : undefined}
-        aria-describedby={tip ? tipId : undefined}
-      >
+      <figure class:list={['polaroid', { tippable: !!tip }]}>
+        {/* 日期提示靠 :hover / :focus-within（聚焦可撕胶带时也会出现）。
+            不在 figure 上加 tabindex，避免非交互元素可聚焦，也避免和胶带按钮嵌套。 */}
         <Tape peelable />
         {/* 带上原始宽高，浏览器好提前占位，图片加载完不会把版面顶一下。
             贴画图是构建期由 NotionMediaDownloader 落到 public/notion/ 下的，
@@ -122,9 +121,10 @@ const tipId = `sticker-tip-${sticker.PageId}`
           alt={sticker.Name}
           width={size?.width}
           height={size?.height}
-          loading="lazy"
+          loading={loading}
           decoding="async"
           data-image-component="true"
+          aria-describedby={tip ? tipId : undefined}
         />
         {sticker.Caption && <figcaption>{sticker.Caption}</figcaption>}
         {tip && (

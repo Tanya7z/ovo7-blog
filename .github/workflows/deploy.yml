@@ -1,0 +1,198 @@
+# 博客构建与部署
+#
+# 默认目标：Cloudflare Workers（备案前）
+# 切回阿里云：仓库 Settings → Variables → DEPLOY_TARGET=aliyun
+#   并记得把 blog.ovo7.cc DNS 指回阿里云；可选停用本仓库的 schedule。
+#
+# 两种目标都会：
+#   1. 带 MEDIA_ORIGIN 构建（HTML 里图片走 https://img.ovo7.cc/blog/...）
+#   2. 把 notion/mirror 同步到阿里云图床
+#
+# 需要的 Secrets：
+#   NOTION_API_SECRET
+#   CLOUDFLARE_API_TOKEN          # DEPLOY_TARGET=cloudflare 时
+#   CLOUDFLARE_ACCOUNT_ID         # DEPLOY_TARGET=cloudflare 时
+#   DEPLOY_SSH_KEY                # 同步图床 / 阿里云全量发布
+#   DEPLOY_HOST                   # 例如 139.x.x.x 或域名
+#   DEPLOY_USER                   # 有 ssh 写权限的用户
+#
+# 可选 Variables（有默认值）：
+#   DEPLOY_TARGET=cloudflare|aliyun
+#   CUSTOM_DOMAIN / MEDIA_ORIGIN / DATABASE_ID / …（与 .env.example 一致）
+
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+  schedule:
+    # Notion 内容刷新；备案切到阿里云后可关掉 schedule，改用服务器 timer
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: '覆盖目标（auto = 用仓库变量 DEPLOY_TARGET）'
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - cloudflare
+          - aliyun
+
+concurrency:
+  group: blog-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # 构建期注入；密钥只走 Secrets，公开 ID 可用 Variables 覆盖
+      NOTION_API_SECRET: ${{ secrets.NOTION_API_SECRET }}
+      DATABASE_ID: ${{ vars.DATABASE_ID || '823085de972b4542b1cfdfb9a8a96dfa' }}
+      DATA_SOURCE_ID: ${{ vars.DATA_SOURCE_ID || '7ab4f37d-daf0-4c80-90ee-9d95b8b2d571' }}
+      STICKER_DATABASE_ID: ${{ vars.STICKER_DATABASE_ID || '1be76821452345c8bc7300bdb504be96' }}
+      STICKER_DATA_SOURCE_ID: ${{ vars.STICKER_DATA_SOURCE_ID || '532a50aa-76de-481a-a300-ee2516d62ed9' }}
+      EXPLORE_DATABASE_ID: ${{ vars.EXPLORE_DATABASE_ID || '3bf269b12ce180b8bf0edb1d31dbfb7d' }}
+      EXPLORE_DATA_SOURCE_ID: ${{ vars.EXPLORE_DATA_SOURCE_ID || '3bf269b1-2ce1-80b8-a05f-000bac887819' }}
+      MUSIC_DATABASE_ID: ${{ vars.MUSIC_DATABASE_ID || '' }}
+      MUSIC_DATA_SOURCE_ID: ${{ vars.MUSIC_DATA_SOURCE_ID || '' }}
+      CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN || 'blog.ovo7.cc' }}
+      MEDIA_ORIGIN: ${{ vars.MEDIA_ORIGIN || 'https://img.ovo7.cc' }}
+      SITE_TITLE: ${{ vars.SITE_TITLE || '七罪的手账本' }}
+      SITE_DESCRIPTION: ${{ vars.SITE_DESCRIPTION || 'La vida no tiene precio.' }}
+      SITE_LANGUAGE: ${{ vars.SITE_LANGUAGE || 'zh-CN' }}
+      ENABLE_LIGHTBOX: ${{ vars.ENABLE_LIGHTBOX || 'true' }}
+      NOTION_TITLE_PROPERTY: 名称
+      NOTION_DATE_PROPERTY: 日期
+      NOTION_CATEGORIES_PROPERTY: 类型
+      NOTION_DOMAINS_PROPERTY: 领域
+      NOTION_LABELS_PROPERTY: 标签
+      NOTION_FEATURED_IMAGE_PROPERTY: 封面
+      NOTION_SORT_PROPERTY: 创建时间
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack dist
+        run: tar -czf dist.tar.gz dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blog-dist
+          path: dist.tar.gz
+          retention-days: 3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+    steps:
+      - name: Resolve target
+        id: target
+        run: |
+          set -euo pipefail
+          raw='${{ github.event.inputs.deploy_target }}'
+          if [[ -z "${raw}" || "${raw}" == "auto" ]]; then
+            raw='${{ vars.DEPLOY_TARGET }}'
+          fi
+          if [[ -z "${raw}" ]]; then
+            raw=cloudflare
+          fi
+          case "${raw}" in
+            cloudflare|aliyun) ;;
+            *) echo "未知 DEPLOY_TARGET: ${raw}" >&2; exit 1 ;;
+          esac
+          echo "value=${raw}" >> "$GITHUB_OUTPUT"
+          echo "DEPLOY_TARGET=${raw}"
+
+      - name: Checkout deploy scripts
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            deploy
+            wrangler.jsonc
+            package.json
+          sparse-checkout-cone-mode: true
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: blog-dist
+
+      - name: Unpack dist
+        run: tar -xzf dist.tar.gz
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Trust deploy host
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Deploy to Cloudflare Workers
+        if: steps.target.outputs.value == 'cloudflare'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+
+      - name: Sync media to imgbed (Cloudflare mode)
+        if: steps.target.outputs.value == 'cloudflare'
+        run: |
+          set -euo pipefail
+          scp dist.tar.gz deploy/remote-publish.sh \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/"
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "sed -i 's/\r$//' /tmp/remote-publish.sh && chmod +x /tmp/remote-publish.sh && bash /tmp/remote-publish.sh /tmp/dist.tar.gz media"
+
+      - name: Publish full site to Aliyun
+        if: steps.target.outputs.value == 'aliyun'
+        run: |
+          set -euo pipefail
+          scp dist.tar.gz deploy/remote-publish.sh \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/"
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "sed -i 's/\r$//' /tmp/remote-publish.sh && chmod +x /tmp/remote-publish.sh && bash /tmp/remote-publish.sh /tmp/dist.tar.gz full"
+
+      - name: Healthcheck
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 \
+            -A 'ovo7-blog-ci/1.0' 'https://blog.ovo7.cc/')
+          echo "blog HTTP ${code}"
+          # 403 多半是 CF 人机验证，部署本身仍可能成功
+          if [[ "${code}" != "200" && "${code}" != "403" ]]; then
+            exit 1
+          fi
+          img=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 \
+            'https://img.ovo7.cc/api/health')
+          echo "imgbed health HTTP ${img}"
+          test "${img}" = "200"
