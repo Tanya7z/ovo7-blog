@@ -20,9 +20,8 @@ let sortProperty;
 let buildFilter;
 
 const loadNotionConfig = async () => {
-  const { PROPERTY_DEFAULTS, buildPublishFilter } = await import(
-    '../src/lib/notion/query-config.mjs'
-  );
+  const { PROPERTY_DEFAULTS, buildPublishFilter } =
+    await import('../src/lib/notion/query-config.mjs');
   titleProperty = process.env.NOTION_TITLE_PROPERTY || PROPERTY_DEFAULTS.title;
   slugProperty = process.env.NOTION_SLUG_PROPERTY || PROPERTY_DEFAULTS.slug;
   sortProperty = process.env.NOTION_SORT_PROPERTY || PROPERTY_DEFAULTS.sort;

@@ -73,7 +73,9 @@
   --sticker-scale: 1;
   --sticker-room: 99rem;
   --sticker-cap: min(
-    calc(min(var(--sticker-max), var(--sticker-fit, 99rem)) * var(--sticker-scale)),
+    calc(
+      min(var(--sticker-max), var(--sticker-fit, 99rem)) * var(--sticker-scale)
+    ),
     var(--sticker-room)
   );
 }

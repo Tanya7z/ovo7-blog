@@ -20,8 +20,14 @@ function slump(polaroid: HTMLElement): void {
   polaroid.classList.add('is-untaped')
   requestAnimationFrame(() => {
     const dir = Math.random() < 0.5 ? -1 : 1
-    polaroid.style.setProperty('--slump', `${(dir * (1 + Math.random() * 2)).toFixed(2)}deg`)
-    polaroid.style.setProperty('--slump-y', `${(2 + Math.random() * 3).toFixed(1)}px`)
+    polaroid.style.setProperty(
+      '--slump',
+      `${(dir * (1 + Math.random() * 2)).toFixed(2)}deg`
+    )
+    polaroid.style.setProperty(
+      '--slump-y',
+      `${(2 + Math.random() * 3).toFixed(1)}px`
+    )
   })
 }
 

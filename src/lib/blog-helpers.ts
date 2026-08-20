@@ -8,7 +8,10 @@ import type {
   RichText,
   Column,
 } from './interfaces'
-import { notionLocalFileReady, resolveNotionFilename } from './notion/media-file'
+import {
+  notionLocalFileReady,
+  resolveNotionFilename,
+} from './notion/media-file'
 import { pathJoin } from './utils'
 
 export const filePath = (url: URL): string => {

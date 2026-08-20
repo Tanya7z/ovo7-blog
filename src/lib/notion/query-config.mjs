@@ -20,7 +20,7 @@ export const PROPERTY_DEFAULTS = {
   filterValue: '',
   filterType: 'select',
   sort: '创建时间',
-}
+};
 
 // 贴画库字段名。新增「集合」选项不改这里；这里只锁字段名。
 export const STICKER_DEFAULTS = {
@@ -33,7 +33,7 @@ export const STICKER_DEFAULTS = {
   scale: '缩放倍数',
   order: '排序',
   enabled: '启用',
-}
+};
 
 // 「探索」库字段名。收藏条目（阅读/动画/电影）与文章分库存放，字段各自独立。
 export const EXPLORE_DEFAULTS = {
@@ -45,7 +45,7 @@ export const EXPLORE_DEFAULTS = {
   author: '作者',
   place: '地点',
   date: '日期',
-}
+};
 
 // 「曲库」字段名。全站常驻播放器的曲目来源，与文章、贴画分库存放。
 // 「音频」是 files 属性：既可上传到 Notion（构建期落地到 public/notion/），
@@ -56,36 +56,36 @@ export const MUSIC_DEFAULTS = {
   audio: '音频',
   order: '排序',
   enabled: '启用',
-}
+};
 
 // 依据过滤类型构造 Notion 查询的 filter 对象；未配置过滤时返回 null。
 // 这是「发布过滤」规则的唯一权威实现，应用与缓存脚本都调用它。
 export function buildPublishFilter(filterProperty, filterValue, filterType) {
   if (!filterProperty || !filterValue) {
-    return null
+    return null;
   }
 
   if (filterType === 'checkbox') {
     return {
       property: filterProperty,
       checkbox: { equals: filterValue === 'true' },
-    }
+    };
   }
   if (filterType === 'status') {
     return {
       property: filterProperty,
       status: { equals: filterValue },
-    }
+    };
   }
   if (filterType === 'multi_select') {
     return {
       property: filterProperty,
       multi_select: { contains: filterValue },
-    }
+    };
   }
 
   return {
     property: filterProperty,
     select: { equals: filterValue },
-  }
+  };
 }

@@ -37,10 +37,13 @@ let resizeTimer = 0
 
 /** 用加密随机数生成种子；没有 crypto 时退回时间戳。 */
 export function newSeed(): number {
-  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.getRandomValues === 'function'
+  ) {
     const buf = new Uint32Array(1)
     crypto.getRandomValues(buf)
-    return buf[0] || (Date.now() >>> 0)
+    return buf[0] || Date.now() >>> 0
   }
   return Date.now() >>> 0
 }
@@ -62,14 +65,8 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 function overlapArea(a: Box, b: Box): number {
-  const x = Math.max(
-    0,
-    Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)
-  )
-  const y = Math.max(
-    0,
-    Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)
-  )
+  const x = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x))
+  const y = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y))
   return x * y
 }
 
@@ -91,7 +88,13 @@ function localBox(el: Element, origin: DOMRect): Box {
 }
 
 /** 旋转后的外接矩形，用来算真实遮挡而不是轴对齐的相纸盒子。 */
-function rotatedAabb(x: number, y: number, w: number, h: number, deg: number): Box {
+function rotatedAabb(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  deg: number
+): Box {
   const rad = (deg * Math.PI) / 180
   const sin = Math.abs(Math.sin(rad))
   const cos = Math.abs(Math.cos(rad))
@@ -192,9 +195,11 @@ function collectDesktopContext(board: HTMLElement): DesktopContext {
       }
       links.push(localBox(el, origin))
     })
-    sheetEl.querySelectorAll('h1, h2, .motto, .pinboard, .entries, .page-icon').forEach((el) => {
-      content.push(localBox(el, origin))
-    })
+    sheetEl
+      .querySelectorAll('h1, h2, .motto, .pinboard, .entries, .page-icon')
+      .forEach((el) => {
+        content.push(localBox(el, origin))
+      })
     const heading = sheetEl.querySelector('h1')
     if (heading) {
       title = localBox(heading, origin)
@@ -351,7 +356,8 @@ function scoreDesktop(
     if (smaller > 0 && overlap / smaller > 0.32) {
       score += 48
     }
-    const minSep = 0.52 * (Math.hypot(aabb.w, aabb.h) + Math.hypot(other.w, other.h)) / 2
+    const minSep =
+      (0.52 * (Math.hypot(aabb.w, aabb.h) + Math.hypot(other.w, other.h))) / 2
     const dist = centerDist(aabb, other)
     if (dist < minSep) {
       const deficit = minSep - dist
@@ -361,7 +367,10 @@ function scoreDesktop(
 
   const bandH = ctx.sheet.h / 5
   if (bandH > 0) {
-    const band = Math.min(4, Math.max(0, Math.floor((aabb.y + aabb.h / 2) / bandH)))
+    const band = Math.min(
+      4,
+      Math.max(0, Math.floor((aabb.y + aabb.h / 2) / bandH))
+    )
     let inBand = 0
     for (const other of placed) {
       const otherBand = Math.min(
@@ -408,8 +417,7 @@ function scoreDesktop(
   const overflowY =
     Math.max(0, ctx.view.y - aabb.y) +
     Math.max(0, aabb.y + aabb.h - (ctx.view.y + ctx.view.h))
-  const overflowArea =
-    overflowX * aabb.h * 0.35 + overflowY * aabb.w * 0.15
+  const overflowArea = overflowX * aabb.h * 0.35 + overflowY * aabb.w * 0.15
   score += (overflowArea / area) * (preferBleed ? 6 : 22)
   if (overflowArea / area > 0.45) {
     score += preferBleed ? 14 : 40
@@ -466,11 +474,20 @@ function layoutDesktop(
     const lockRotate = isRotateLocked(item.el)
     const rotate = lockRotate ? readLockedRotate(item.el) : randomRotate(rng)
     const candidates = generateDesktopCandidates(item.size, ctx, rng)
-    let best = candidates[0] ?? { x: -item.size.w * 0.4, y: rng() * ctx.sheet.h * 0.6 }
+    let best = candidates[0] ?? {
+      x: -item.size.w * 0.4,
+      y: rng() * ctx.sheet.h * 0.6,
+    }
     let bestScore = Number.POSITIVE_INFINITY
 
     for (const point of candidates) {
-      const aabb = rotatedAabb(point.x, point.y, item.size.w, item.size.h, rotate)
+      const aabb = rotatedAabb(
+        point.x,
+        point.y,
+        item.size.w,
+        item.size.h,
+        rotate
+      )
       const score = scoreDesktop(aabb, rotate, ctx, placed, sides)
       if (score < bestScore) {
         best = point
@@ -555,11 +572,10 @@ function layoutMobile(
       ? readLockedRotate(item.el)
       : randomRotate(rng, rotateScale)
     const candidates = generateMobileCandidates(item.size, ctx, rng)
-    let best =
-      candidates[0] ?? {
-        x: rng() * Math.max(8, ctx.sheet.w - item.size.w),
-        y: rng() * Math.max(8, ctx.sheet.h * 0.55),
-      }
+    let best = candidates[0] ?? {
+      x: rng() * Math.max(8, ctx.sheet.w - item.size.w),
+      y: rng() * Math.max(8, ctx.sheet.h * 0.55),
+    }
     let bestScore = Number.POSITIVE_INFINITY
 
     for (const point of candidates) {
@@ -597,7 +613,11 @@ function layoutMobile(
 
 export function layoutBoard(board: HTMLElement, seed: number): void {
   const rng = mulberry32(seed)
-  const items = [...board.querySelectorAll<HTMLElement>(':scope > .sticker:not(.is-falling)')]
+  const items = [
+    ...board.querySelectorAll<HTMLElement>(
+      ':scope > .sticker:not(.is-falling)'
+    ),
+  ]
   if (items.length === 0) {
     return
   }
@@ -640,7 +660,9 @@ export function initScatterLayout(): void {
   didBind = true
 
   const schedule = () => {
-    const boards = document.querySelectorAll<HTMLElement>('[data-random-layout]')
+    const boards = document.querySelectorAll<HTMLElement>(
+      '[data-random-layout]'
+    )
     if (boards.length === 0) {
       return
     }

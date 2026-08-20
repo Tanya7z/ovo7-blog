@@ -49,9 +49,7 @@ export function firstFile(
 }
 
 /** 页面自带的 cover，作为「封面」属性为空时的兜底。 */
-export function pageCover(
-  pageObject: responses.PageObject
-): FileObject | null {
+export function pageCover(pageObject: responses.PageObject): FileObject | null {
   const cover = pageObject.cover
   if (!cover) {
     return null

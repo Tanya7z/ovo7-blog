@@ -287,13 +287,17 @@ export async function getAllBlocksByBlockId(blockId: string): Promise<Block[]> {
           block.BulletedListItem &&
           block.HasChildren
         ) {
-          block.BulletedListItem.Children = await getAllBlocksByBlockId(block.Id)
+          block.BulletedListItem.Children = await getAllBlocksByBlockId(
+            block.Id
+          )
         } else if (
           block.Type === 'numbered_list_item' &&
           block.NumberedListItem &&
           block.HasChildren
         ) {
-          block.NumberedListItem.Children = await getAllBlocksByBlockId(block.Id)
+          block.NumberedListItem.Children = await getAllBlocksByBlockId(
+            block.Id
+          )
         } else if (block.Type === 'to_do' && block.ToDo && block.HasChildren) {
           block.ToDo.Children = await getAllBlocksByBlockId(block.Id)
         } else if (block.Type === 'synced_block' && block.SyncedBlock) {
@@ -494,7 +498,10 @@ export async function getDatabase(): Promise<Database> {
 
   let cover: FileObject | null = null
   if (dataSource.cover) {
-    if (dataSource.cover.type === 'external' && 'external' in dataSource.cover) {
+    if (
+      dataSource.cover.type === 'external' &&
+      'external' in dataSource.cover
+    ) {
       cover = {
         Type: dataSource.cover.type,
         Url: dataSource.cover.external?.url || '',
@@ -510,7 +517,8 @@ export async function getDatabase(): Promise<Database> {
   const database: Database = {
     Title:
       SITE_TITLE ||
-      dataSource.title?.map((richText) => richText.plain_text).join('') || '',
+      dataSource.title?.map((richText) => richText.plain_text).join('') ||
+      '',
     Description:
       SITE_DESCRIPTION ||
       dataSource.description?.map((richText) => richText.plain_text).join('') ||
@@ -1136,7 +1144,10 @@ function _buildPost(pageObject: responses.PageObject): Post {
 
   let cover: FileObject | null = null
   if (pageObject.cover) {
-    if (pageObject.cover.type === 'external' && 'external' in pageObject.cover) {
+    if (
+      pageObject.cover.type === 'external' &&
+      'external' in pageObject.cover
+    ) {
       cover = {
         Type: pageObject.cover.type,
         Url: pageObject.cover.external?.url || '',

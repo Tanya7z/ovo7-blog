@@ -49,8 +49,10 @@ function prefersReducedMotion(): boolean {
 }
 
 function readAngleRad(el: HTMLElement): number {
-  const rotate = Number.parseFloat(getComputedStyle(el).getPropertyValue('--rotate')) || 0
-  const slump = Number.parseFloat(getComputedStyle(el).getPropertyValue('--slump')) || 0
+  const rotate =
+    Number.parseFloat(getComputedStyle(el).getPropertyValue('--rotate')) || 0
+  const slump =
+    Number.parseFloat(getComputedStyle(el).getPropertyValue('--slump')) || 0
   return ((rotate + slump) * Math.PI) / 180
 }
 
@@ -139,7 +141,12 @@ function layerBox(el: Element): LayerBox {
  */
 function freezeStickerSize(sticker: HTMLElement): void {
   const computed = getComputedStyle(sticker)
-  for (const name of ['--sticker-room', '--sticker-max', '--sticker-fit', '--sticker-scale']) {
+  for (const name of [
+    '--sticker-room',
+    '--sticker-max',
+    '--sticker-fit',
+    '--sticker-scale',
+  ]) {
     const value = computed.getPropertyValue(name).trim()
     if (value) {
       sticker.style.setProperty(name, value)
@@ -202,7 +209,11 @@ function extractToLayer(el: HTMLElement): Extracted {
 
 function applyPose(actor: Actor): void {
   const { x, y } = actor.body.position
-  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(actor.body.angle)) {
+  if (
+    !Number.isFinite(x) ||
+    !Number.isFinite(y) ||
+    !Number.isFinite(actor.body.angle)
+  ) {
     return
   }
   actor.el.style.transform = `translate(${x - actor.w / 2}px, ${y - actor.h / 2}px) rotate(${actor.body.angle}rad)`
@@ -287,7 +298,10 @@ function unlockFooter(body: Matter.Body, sticker?: Matter.Body): void {
     x: kickX + (Math.random() - 0.5) * 2.4,
     y: kickY,
   })
-  Body.setAngularVelocity(body, (sticker?.angularVelocity ?? 0) + (Math.random() - 0.5) * 0.28)
+  Body.setAngularVelocity(
+    body,
+    (sticker?.angularVelocity ?? 0) + (Math.random() - 0.5) * 0.28
+  )
 }
 
 function queueUnlock(footer: Matter.Body, sticker: Matter.Body): void {
@@ -300,7 +314,12 @@ function clampVelocities(): void {
   for (const actor of actors) {
     const { x, y } = actor.body.velocity
     const { x: px, y: py } = actor.body.position
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(px) || !Number.isFinite(py)) {
+    if (
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      !Number.isFinite(px) ||
+      !Number.isFinite(py)
+    ) {
       Body.setVelocity(actor.body, { x: 0, y: 0 })
       Body.setAngularVelocity(actor.body, 0)
       continue
@@ -355,33 +374,35 @@ function ensureWorld(): Matter.Engine {
     footerInner.dataset.physicsReady = '1'
     document.querySelector('.site-footer')?.classList.add('is-physics-shelf')
 
-    footerInner.querySelectorAll<HTMLElement>('[data-physics-solid]').forEach((el) => {
-      const { box: pose, node } = extractToLayer(el)
-      // 必须先当动态体创建再 setStatic：Matter 在 options 里直接写 isStatic
-      // 时不会记下 _original，解锁会留下 Infinity 质量，下一步就是 NaN。
-      const body = Bodies.rectangle(
-        pose.cx,
-        pose.cy,
-        Math.max(8, pose.w),
-        Math.max(10, pose.h),
-        {
-          label: 'footer',
-          restitution: 0.08,
-          friction: 0.32,
-          frictionAir: 0.04,
-          density: 0.0014,
-          collisionFilter: {
-            category: CAT_FOOTER,
-            mask: CAT_STICKER | CAT_FOOTER | CAT_BOUND,
-            group: 0,
-          },
-        }
-      )
-      Body.setStatic(body, true)
-      actors.push({ body, el: node, w: pose.w, h: pose.h, kind: 'footer' })
-      Composite.add(created.world, body)
-      applyPose({ body, el: node, w: pose.w, h: pose.h, kind: 'footer' })
-    })
+    footerInner
+      .querySelectorAll<HTMLElement>('[data-physics-solid]')
+      .forEach((el) => {
+        const { box: pose, node } = extractToLayer(el)
+        // 必须先当动态体创建再 setStatic：Matter 在 options 里直接写 isStatic
+        // 时不会记下 _original，解锁会留下 Infinity 质量，下一步就是 NaN。
+        const body = Bodies.rectangle(
+          pose.cx,
+          pose.cy,
+          Math.max(8, pose.w),
+          Math.max(10, pose.h),
+          {
+            label: 'footer',
+            restitution: 0.08,
+            friction: 0.32,
+            frictionAir: 0.04,
+            density: 0.0014,
+            collisionFilter: {
+              category: CAT_FOOTER,
+              mask: CAT_STICKER | CAT_FOOTER | CAT_BOUND,
+              group: 0,
+            },
+          }
+        )
+        Body.setStatic(body, true)
+        actors.push({ body, el: node, w: pose.w, h: pose.h, kind: 'footer' })
+        Composite.add(created.world, body)
+        applyPose({ body, el: node, w: pose.w, h: pose.h, kind: 'footer' })
+      })
   }
 
   rebuildBounds(created.world)

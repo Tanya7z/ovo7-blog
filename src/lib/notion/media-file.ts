@@ -81,7 +81,10 @@ export function resolveNotionFilename(
 
   const files = fs
     .readdirSync(folder)
-    .filter((name) => !name.startsWith('.') && fs.statSync(path.join(folder, name)).isFile())
+    .filter(
+      (name) =>
+        !name.startsWith('.') && fs.statSync(path.join(folder, name)).isFile()
+    )
 
   if (files.length === 1) {
     return files[0]
