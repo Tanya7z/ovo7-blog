@@ -30,6 +30,8 @@ import File from './notion-blocks/File.astro'
 import LinkToPage from './notion-blocks/LinkToPage.astro'
 import {
   attachNotesToParagraphs,
+  collectLeadingEpigraphIds,
+  findFirstBodyParagraphId,
   groupByHeading1,
   type Renderable,
 } from '../lib/tufte.ts'
@@ -126,6 +128,12 @@ const bookmarkURLs = blocks
 const bookmarkURLMap = await buildURLToHTMLMap(bookmarkURLs)
 
 const { notesByParagraphId, consumedNoteIds } = attachNotesToParagraphs(blocks)
+const leadingEpigraphIds = isRoot
+  ? collectLeadingEpigraphIds(blocks)
+  : new Set<string>()
+const firstBodyParagraphId = isRoot
+  ? findFirstBodyParagraphId(blocks, leadingEpigraphIds)
+  : null
 const sectionGroups = isRoot ? groupByHeading1(blocks) : [blocks]
 ---
 
@@ -163,6 +171,7 @@ const sectionGroups = isRoot ? groupByHeading1(blocks) : [blocks]
               block={block}
               headings={headings}
               trailingNotes={notesByParagraphId.get(block.Id) ?? []}
+              dropCap={block.Id === firstBodyParagraphId}
             />
           )
         case 'heading_1':
@@ -180,7 +189,13 @@ const sectionGroups = isRoot ? groupByHeading1(blocks) : [blocks]
         case 'code':
           return <Code block={block} />
         case 'quote':
-          return <Quote block={block} headings={headings} />
+          return (
+            <Quote
+              block={block}
+              headings={headings}
+              asEpigraph={leadingEpigraphIds.has(block.Id)}
+            />
+          )
         case 'equation':
           return <Equation block={block} />
         case 'callout':

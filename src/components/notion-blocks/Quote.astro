@@ -9,22 +9,25 @@ import '../../styles/notion-color.css'
 export interface Props {
   block: interfaces.Block
   headings: interfaces.Block[]
+  /** 文首引用：按 Tufte epigraph 排，不论是否带署名 */
+  asEpigraph?: boolean
 }
 
-const { block, headings } = Astro.props
+const { block, headings, asEpigraph = false } = Astro.props
 const quote = interfaces.must(block.Quote, 'Quote')
 const { body, attribution } = splitQuoteAttribution(quote.RichTexts)
-const isEpigraph = attribution !== null
+const isEpigraph = asEpigraph || attribution !== null
+const quoteBody = attribution !== null ? body : quote.RichTexts
 ---
 
 {
   isEpigraph ? (
     <div class="epigraph">
       <blockquote class={snakeToKebab(quote.Color)}>
-        {body.map((richText: interfaces.RichText) => (
+        {quoteBody.map((richText: interfaces.RichText) => (
           <RichText richText={richText} />
         ))}
-        <footer>{attribution}</footer>
+        {attribution && <footer>{attribution}</footer>}
         {quote.Children && (
           <NotionBlocks blocks={quote.Children} headings={headings} />
         )}

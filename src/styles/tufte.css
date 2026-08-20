@@ -56,13 +56,16 @@
   --input-bg: #f7f3ea;
   --radius: 0;
 
-  --font-body: 'et-book', 'Zhuque Fangsong (technical preview)', 'Songti SC',
-    'STSong', Palatino, Georgia, serif;
-  --font-display: 'et-book', 'Zhuque Fangsong (technical preview)', 'Songti SC',
-    'STSong', Palatino, Georgia, serif;
+  --font-body:
+    'et-book', 'Zhuque Fangsong (technical preview)', 'Songti SC', 'STSong',
+    Palatino, Georgia, serif;
+  --font-display:
+    'et-book', 'Zhuque Fangsong (technical preview)', 'Songti SC', 'STSong',
+    Palatino, Georgia, serif;
   --font-numeral: 'et-book-roman-old-style', var(--font-body);
-  --font-sans: 'Gill Sans', 'Gill Sans MT', 'PingFang SC', 'Microsoft YaHei',
-    Calibri, sans-serif;
+  --font-sans:
+    'Gill Sans', 'Gill Sans MT', 'PingFang SC', 'Microsoft YaHei', Calibri,
+    sans-serif;
   --font-mono: Consolas, 'Liberation Mono', Menlo, Courier, monospace;
 
   /* Tufte 版面尺度 */
@@ -175,8 +178,19 @@ h3 {
 
 /* 用 old-style 数字排数字/日期 */
 .numeral,
-.numerals {
+.numerals,
+time {
   font-family: var(--font-numeral);
+}
+
+/* 正文首段首字下沉：只打在 .drop-cap 上，不碰引言 blockquote */
+.post-body p.drop-cap::first-letter {
+  float: left;
+  font-family: var(--font-display);
+  font-size: 3.15em;
+  line-height: 0.85;
+  padding: 0.08em 0.1em 0 0;
+  color: var(--ink);
 }
 
 /* ===== 链接：墨色不变，下划线只在 hover / 键盘聚焦时出现 =====
@@ -379,11 +393,13 @@ label.sidenote-number {
 }
 
 div.epigraph {
-  margin: 3em 0;
+  margin: 2.4em 0 2.8em;
+  max-width: 55%;
 }
 div.epigraph > blockquote {
   border-left: none;
   padding-left: 0;
+  margin: 0;
   color: var(--ink);
 }
 div.epigraph > blockquote > footer {
@@ -392,6 +408,11 @@ div.epigraph > blockquote > footer {
   text-align: right;
   color: var(--muted);
   margin-top: 0.6rem;
+}
+@media (max-width: 760px) {
+  div.epigraph {
+    max-width: 100%;
+  }
 }
 
 .iframe-wrapper {

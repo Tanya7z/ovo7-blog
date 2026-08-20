@@ -66,8 +66,53 @@ export function isNoteCallout(block: Block): boolean {
   return isSidenoteCallout(block) || isMarginNoteCallout(block)
 }
 
+const ATTRIBUTION_LINE = /^(?:—+|–+|-+|——)\s*\S/
+
 function isList(item: Renderable): item is List {
   return 'ListItems' in item
+}
+
+/** 空段落：Notion 文首常见占位，不计作正文。 */
+export function isEmptyParagraph(block: Block): boolean {
+  if (block.Type !== 'paragraph') return false
+  const texts = block.Paragraph?.RichTexts ?? []
+  if (texts.length === 0) return true
+  return texts.every((t) => !(t.Text?.Content ?? t.PlainText ?? '').trim())
+}
+
+/**
+ * 文首连续引用视为引言（epigraph）。
+ * 允许跳过空段落；一遇到非引用正文块即停止。
+ */
+export function collectLeadingEpigraphIds(items: Renderable[]): Set<string> {
+  const ids = new Set<string>()
+  for (const item of items) {
+    if (isList(item)) break
+    if (isEmptyParagraph(item)) continue
+    if (item.Type === 'quote') {
+      ids.add(item.Id)
+      continue
+    }
+    break
+  }
+  return ids
+}
+
+/**
+ * 引言之后的第一段正文，用于首字下沉。
+ * 不落在引用、空段或列表项上。
+ */
+export function findFirstBodyParagraphId(
+  items: Renderable[],
+  epigraphIds: Set<string>
+): string | null {
+  for (const item of items) {
+    if (isList(item)) continue
+    if (epigraphIds.has(item.Id)) continue
+    if (isEmptyParagraph(item)) continue
+    if (item.Type === 'paragraph') return item.Id
+  }
+  return null
 }
 
 /**
@@ -122,8 +167,6 @@ export function groupByHeading1(items: Renderable[]): Renderable[][] {
   if (current.length > 0) groups.push(current)
   return groups.length > 0 ? groups : [[]]
 }
-
-const ATTRIBUTION_LINE = /^(?:—+|–+|-+|——)\s*\S/
 
 /**
  * 引用末行若像署名（破折号开头，或很短），拆成 epigraph 的 footer。

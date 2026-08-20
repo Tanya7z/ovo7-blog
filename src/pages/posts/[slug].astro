@@ -158,6 +158,9 @@ if (hasCover && coverSource?.Url) {
 
       <PostBody blocks={blocks} />
 
+      <!-- 收束占位：稍后可换成更古典的花饰 -->
+      <p class="article-close" aria-hidden="true">※</p>
+
       <footer class="post-footer">
         <PostMeta post={post} enableLink={true} />
         <PostRelativeLink prevPost={prevPost} nextPost={nextPost} />
@@ -184,13 +187,24 @@ if (hasCover && coverSource?.Url) {
     font-family: var(--font-mono);
     font-size: 0.85em;
   }
+  .article-close {
+    width: 55%;
+    margin: 2.8rem 0 0;
+    padding: 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+    line-height: 1;
+  }
   .post-footer {
     width: 55%;
-    margin-top: 3rem;
+    margin-top: 1.6rem;
     border-top: 1px solid var(--line);
-    padding-top: 1.4rem;
+    padding-top: 1.2rem;
   }
   @media (max-width: 760px) {
+    .article-close,
     .post-footer {
       width: 100%;
     }

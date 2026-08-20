@@ -156,7 +156,8 @@ export const MOCK_POSTS: Post[] = [
       { id: 'tool', name: '工具', color: 'green' },
       { id: 'linux', name: 'Linux', color: 'green' },
     ],
-    Excerpt: '一份面向 Windows 环境的轻量命令行笔记，覆盖路径、文件和 Git 工作流。',
+    Excerpt:
+      '一份面向 Windows 环境的轻量命令行笔记，覆盖路径、文件和 Git 工作流。',
     FeaturedImage: null,
   },
   {
@@ -296,6 +297,19 @@ export const MOCK_TRACKS: Track[] = [
 
 const MOCK_BLOCKS: Record<string, Block[]> = {
   'mock-tufte': [
+    {
+      Id: 'mock-tufte-epigraph',
+      Type: 'quote',
+      HasChildren: false,
+      Quote: {
+        RichTexts: [
+          richText(
+            '网页首先应该像一篇好读的文章，而不是一堆花哨的组件。\n—— Edward Tufte'
+          ),
+        ],
+        Color: 'default',
+      },
+    },
     paragraph(
       'mock-tufte-lead',
       '设计应当服务于信息本身。正文走中间一栏，补充说明放到右侧，读者不用跳到文末。'
@@ -336,19 +350,6 @@ const MOCK_BLOCKS: Record<string, Block[]> = {
     ),
     image('mock-tufte-img-fullwidth', '[全宽] 横跨内容区的大图。'),
     heading2('mock-tufte-h2', '引用与代码'),
-    {
-      Id: 'mock-tufte-quote',
-      Type: 'quote',
-      HasChildren: false,
-      Quote: {
-        RichTexts: [
-          richText(
-            '网页首先应该像一篇好读的文章，而不是一堆花哨的组件。\n—— Edward Tufte'
-          ),
-        ],
-        Color: 'default',
-      },
-    },
     paragraph(
       'mock-tufte-code-intro',
       '代码块仍用 Prism 高亮和复制按钮，只把底色收进纸面令牌。'
@@ -381,7 +382,9 @@ const MOCK_BLOCKS: Record<string, Block[]> = {
       HasChildren: false,
       Paragraph: {
         RichTexts: [
-          richText('PIE 更接近实际游戏运行，SIE 则保留编辑器视角。理解两者的状态边界，会让调试过程顺畅很多。'),
+          richText(
+            'PIE 更接近实际游戏运行，SIE 则保留编辑器视角。理解两者的状态边界，会让调试过程顺畅很多。'
+          ),
         ],
         Color: 'default',
       },
@@ -392,7 +395,9 @@ const MOCK_BLOCKS: Record<string, Block[]> = {
       HasChildren: false,
       Paragraph: {
         RichTexts: [
-          richText('切换模式时，世界状态、输入和调试器附着点都会变化。把这些差异记下来，比事后回想要可靠。'),
+          richText(
+            '切换模式时，世界状态、输入和调试器附着点都会变化。把这些差异记下来，比事后回想要可靠。'
+          ),
         ],
         Color: 'default',
       },
@@ -404,7 +409,11 @@ const MOCK_BLOCKS: Record<string, Block[]> = {
       Type: 'paragraph',
       HasChildren: false,
       Paragraph: {
-        RichTexts: [richText('Linux 的目录结构并不神秘，它只是把系统资源组织成一棵有明确职责的树。')],
+        RichTexts: [
+          richText(
+            'Linux 的目录结构并不神秘，它只是把系统资源组织成一棵有明确职责的树。'
+          ),
+        ],
         Color: 'default',
       },
     },
@@ -415,7 +424,9 @@ const MOCK_BLOCKS: Record<string, Block[]> = {
       Type: 'paragraph',
       HasChildren: false,
       Paragraph: {
-        RichTexts: [richText('从 pwd、ls 和 cd 开始，逐步建立一套可重复的终端工作习惯。')],
+        RichTexts: [
+          richText('从 pwd、ls 和 cd 开始，逐步建立一套可重复的终端工作习惯。'),
+        ],
         Color: 'default',
       },
     },
@@ -437,7 +448,9 @@ const MOCK_BLOCKS: Record<string, Block[]> = {
       Type: 'paragraph',
       HasChildren: false,
       Paragraph: {
-        RichTexts: [richText('散步的好处是：什么都不用完成，只要走完这一段路。')],
+        RichTexts: [
+          richText('散步的好处是：什么都不用完成，只要走完这一段路。'),
+        ],
         Color: 'default',
       },
     },
