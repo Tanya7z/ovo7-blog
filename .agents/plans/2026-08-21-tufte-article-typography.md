@@ -16,47 +16,47 @@
 
 ## Decisions（执行时按此，勿再猜）
 
-| 项 | 决定 |
-|----|------|
-| 正文链接 | 仅 `.post-body` 内常驻下划线、墨色 |
-| 标题/品牌/顶栏/列表/首页入口 | 默认无线（不再全局下划线再豁免） |
-| 节标题锚点 | `.post-body` 内再关掉下划线 |
-| 正文彩色文字 | `.post-body` 内忽略颜色 class，回墨色（保留 DOM class 亦可） |
-| 正文彩色背景 span | 忽略背景，或极淡 `--soft`；不以彩虹示人 |
-| 彩色 Callout（非灰/默认） | 保留块，但去掉花哨边框色，改成轻提示（墨色 + 细线/`--soft`） |
-| 行内 code | 去色块，仅等宽；字号贴近 `1.0rem` |
-| Notion 下划线 `<u>` | 改为无下划线的轻强调（如 `font-style: italic` 或 `border-bottom: 1px dotted` 且细弱），避免与链接抢「实线下划线」 |
-| 粗斜体 | `<b>`→`<strong>`，`<i>`→`<em>` |
-| 旁注色 | 改回正文墨色（或极接近），不再用明显 `--muted` |
-| 普通 blockquote | 去左边框；宽随正文栏；署名右对齐已有 epigraph 路径则保持 |
-| 代码块 | 减 UI：弱化框/底；Copy 可留但视觉更淡；**保留彩色语法高亮** |
-| 表格 | 减单元格「电子表」感；表头可无底或极淡；可选 sans |
-| 列表 | 接近原版：约 50% + `padding-inline-start: 5%`（在 `.post-body` 内） |
-| hr | 细线、随正文栏宽、颜色用 `--line` |
-| drop-cap / newthought | 本轮**不改**写作入口；drop-cap 可留；不强制接 newthought |
-| 图注富文本 | Caption 尽量保留 RichText（至少链接/斜体），不要纯字符串压扁 |
+| 项                           | 决定                                                                                                              |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 正文链接                     | 仅 `.post-body` 内常驻下划线、墨色                                                                                |
+| 标题/品牌/顶栏/列表/首页入口 | 默认无线（不再全局下划线再豁免）                                                                                  |
+| 节标题锚点                   | `.post-body` 内再关掉下划线                                                                                       |
+| 正文彩色文字                 | `.post-body` 内忽略颜色 class，回墨色（保留 DOM class 亦可）                                                      |
+| 正文彩色背景 span            | 忽略背景，或极淡 `--soft`；不以彩虹示人                                                                           |
+| 彩色 Callout（非灰/默认）    | 保留块，但去掉花哨边框色，改成轻提示（墨色 + 细线/`--soft`）                                                      |
+| 行内 code                    | 去色块，仅等宽；字号贴近 `1.0rem`                                                                                 |
+| Notion 下划线 `<u>`          | 改为无下划线的轻强调（如 `font-style: italic` 或 `border-bottom: 1px dotted` 且细弱），避免与链接抢「实线下划线」 |
+| 粗斜体                       | `<b>`→`<strong>`，`<i>`→`<em>`                                                                                    |
+| 旁注色                       | 改回正文墨色（或极接近），不再用明显 `--muted`                                                                    |
+| 普通 blockquote              | 去左边框；宽随正文栏；署名右对齐已有 epigraph 路径则保持                                                          |
+| 代码块                       | 减 UI：弱化框/底；Copy 可留但视觉更淡；**保留彩色语法高亮**                                                       |
+| 表格                         | 减单元格「电子表」感；表头可无底或极淡；可选 sans                                                                 |
+| 列表                         | 接近原版：约 50% + `padding-inline-start: 5%`（在 `.post-body` 内）                                               |
+| hr                           | 细线、随正文栏宽、颜色用 `--line`                                                                                 |
+| drop-cap / newthought        | 本轮**不改**写作入口；drop-cap 可留；不强制接 newthought                                                          |
+| 图注富文本                   | Caption 尽量保留 RichText（至少链接/斜体），不要纯字符串压扁                                                      |
 
 ---
 
 ## File map
 
-| File | Responsibility |
-|------|----------------|
-| `src/styles/tufte.css` | 链接默认/豁免、行内 code、旁注色、blockquote、列表、hr、表格基线 |
-| `src/styles/notion-color.css` | 或由 `tufte.css` 在 `.post-body` 覆盖彩色；二选一，避免双真源 |
-| `src/components/notion-blocks/annotations/Anchor.astro` | 删 hover-only |
-| `src/components/notion-blocks/annotations/Bold.astro` | `strong` |
-| `src/components/notion-blocks/annotations/Italic.astro` | `em` |
-| `src/components/notion-blocks/annotations/Underline.astro` | 非链接式强调 |
-| `src/components/notion-blocks/annotations/Code.astro` | 仅结构；样式走全局 |
-| `src/components/notion-blocks/Quote.astro` | 普通引用吃全局；epigraph 保持 |
-| `src/components/notion-blocks/Callout.astro` | 彩色 callout 视觉降噪 |
-| `src/components/notion-blocks/Code.astro` | 代码块减装饰 |
-| `src/components/notion-blocks/Table.astro` | 表格减描边/表头底 |
-| `src/components/notion-blocks/Divider.astro` | 对齐全局 `hr` |
-| `src/components/notion-blocks/Caption.astro` | 输出 RichText，非整段纯文本 |
-| `src/components/notion-blocks/Mention.astro` | 正文 mention 跟链接规则 |
-| mock 文（可选） | `src/lib/mock-content.ts` 加少量样例便于肉眼验收 |
+| File                                                       | Responsibility                                                   |
+| ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| `src/styles/tufte.css`                                     | 链接默认/豁免、行内 code、旁注色、blockquote、列表、hr、表格基线 |
+| `src/styles/notion-color.css`                              | 或由 `tufte.css` 在 `.post-body` 覆盖彩色；二选一，避免双真源    |
+| `src/components/notion-blocks/annotations/Anchor.astro`    | 删 hover-only                                                    |
+| `src/components/notion-blocks/annotations/Bold.astro`      | `strong`                                                         |
+| `src/components/notion-blocks/annotations/Italic.astro`    | `em`                                                             |
+| `src/components/notion-blocks/annotations/Underline.astro` | 非链接式强调                                                     |
+| `src/components/notion-blocks/annotations/Code.astro`      | 仅结构；样式走全局                                               |
+| `src/components/notion-blocks/Quote.astro`                 | 普通引用吃全局；epigraph 保持                                    |
+| `src/components/notion-blocks/Callout.astro`               | 彩色 callout 视觉降噪                                            |
+| `src/components/notion-blocks/Code.astro`                  | 代码块减装饰                                                     |
+| `src/components/notion-blocks/Table.astro`                 | 表格减描边/表头底                                                |
+| `src/components/notion-blocks/Divider.astro`               | 对齐全局 `hr`                                                    |
+| `src/components/notion-blocks/Caption.astro`               | 输出 RichText，非整段纯文本                                      |
+| `src/components/notion-blocks/Mention.astro`               | 正文 mention 跟链接规则                                          |
+| mock 文（可选）                                            | `src/lib/mock-content.ts` 加少量样例便于肉眼验收                 |
 
 ---
 
@@ -111,12 +111,18 @@ a:visited {
 在 `tufte.css` 末尾加（示例）：
 
 ```css
-.post-body .gray, .post-body .brown, .post-body .orange,
-.post-body .yellow, .post-body .green, .post-body .blue,
-.post-body .purple, .post-body .pink, .post-body .red {
+.post-body .gray,
+.post-body .brown,
+.post-body .orange,
+.post-body .yellow,
+.post-body .green,
+.post-body .blue,
+.post-body .purple,
+.post-body .pink,
+.post-body .red {
   color: inherit;
 }
-.post-body [class$="-background"] {
+.post-body [class$='-background'] {
   background: transparent !important;
 }
 ```
@@ -134,7 +140,9 @@ code {
   background: transparent;
   color: inherit;
 }
-pre code { /* 保持块内 code 透明底 */ }
+pre code {
+  /* 保持块内 code 透明底 */
+}
 ```
 
 - [x] **Step 3: Bold/Italic 语义**
@@ -185,7 +193,9 @@ blockquote {
   color: var(--ink);
   font-style: italic;
 }
-div.epigraph > blockquote { /* 保持现有无边框 + footer 右齐 */ }
+div.epigraph > blockquote {
+  /* 保持现有无边框 + footer 右齐 */
+}
 ```
 
 - [x] **Step 2: `.post-body` 列表宽度**

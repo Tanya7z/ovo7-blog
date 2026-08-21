@@ -399,9 +399,7 @@ const MOCK_BLOCKS: Record<string, Block[]> = {
             Type: 'bulleted_list_item',
             HasChildren: false,
             BulletedListItem: {
-              RichTexts: [
-                richText('普通双向箭头：↔'),
-              ],
+              RichTexts: [richText('普通双向箭头：↔')],
               Color: 'default',
             },
           },
@@ -410,9 +408,7 @@ const MOCK_BLOCKS: Record<string, Block[]> = {
             Type: 'bulleted_list_item',
             HasChildren: false,
             BulletedListItem: {
-              RichTexts: [
-                richText('中间带分隔线的双向箭头：↔|'),
-              ],
+              RichTexts: [richText('中间带分隔线的双向箭头：↔|')],
               Color: 'default',
             },
           },

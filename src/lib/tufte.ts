@@ -119,8 +119,7 @@ export function findFirstBodyParagraphId(
 export const SIDENOTE_MARKER = '[*]'
 
 export type ParagraphSegment =
-  | { type: 'text'; richTexts: RichText[] }
-  | { type: 'note'; block: Block }
+  { type: 'text'; richTexts: RichText[] } | { type: 'note'; block: Block }
 
 export type ParagraphNotePlan = {
   segments: ParagraphSegment[]
