@@ -115,16 +115,151 @@ export function findFirstBodyParagraphId(
   return null
 }
 
+/** 段内旁注锚点：写作时写字面量，发布时换成编号角标。 */
+export const SIDENOTE_MARKER = '[*]'
+
+export type ParagraphSegment =
+  | { type: 'text'; richTexts: RichText[] }
+  | { type: 'note'; block: Block }
+
+export type ParagraphNotePlan = {
+  segments: ParagraphSegment[]
+  trailingNotes: Block[]
+}
+
+function richTextChunk(rt: RichText): string {
+  return rt.Text?.Content ?? rt.PlainText ?? ''
+}
+
+function joinPlain(richTexts: RichText[]): string {
+  return richTexts.map(richTextChunk).join('')
+}
+
+export function countSidenoteMarkers(richTexts: RichText[]): number {
+  const plain = joinPlain(richTexts)
+  let count = 0
+  let from = 0
+  while (from < plain.length) {
+    const at = plain.indexOf(SIDENOTE_MARKER, from)
+    if (at === -1) break
+    count += 1
+    from = at + SIDENOTE_MARKER.length
+  }
+  return count
+}
+
 /**
- * 把紧跟在段落后的旁注/边注挂到该段末尾，便于编号出现在句中。
- * 连续多条旁注会一并挂上。
+ * 按 [*] 切开 RichTexts，标记本身丢弃。
+ * 无标记时返回 [原数组]。
+ */
+export function splitRichTextsAtSidenoteMarker(
+  richTexts: RichText[]
+): RichText[][] {
+  if (countSidenoteMarkers(richTexts) === 0) return [richTexts]
+
+  const parts: RichText[][] = []
+  let current: RichText[] = []
+
+  const pushCurrent = () => {
+    parts.push(current)
+    current = []
+  }
+
+  for (const rt of richTexts) {
+    // 公式/提及等无普通文本的节点不参与标记切割
+    if (!rt.Text?.Content && (rt.Equation || rt.Mention)) {
+      current.push(rt)
+      continue
+    }
+
+    let content = richTextChunk(rt)
+    while (content.length > 0) {
+      const at = content.indexOf(SIDENOTE_MARKER)
+      if (at === -1) {
+        current.push({
+          ...rt,
+          PlainText: content,
+          Text: rt.Text ? { ...rt.Text, Content: content } : rt.Text,
+        })
+        break
+      }
+      if (at > 0) {
+        const before = content.slice(0, at)
+        current.push({
+          ...rt,
+          PlainText: before,
+          Text: rt.Text ? { ...rt.Text, Content: before } : rt.Text,
+        })
+      }
+      pushCurrent()
+      content = content.slice(at + SIDENOTE_MARKER.length)
+    }
+  }
+  parts.push(current)
+  return parts
+}
+
+function buildSegments(
+  parts: RichText[][],
+  inlineNotes: Block[]
+): ParagraphSegment[] {
+  const segments: ParagraphSegment[] = []
+  let partIndex = 0
+
+  for (let i = 0; i < inlineNotes.length; i++) {
+    const before = parts[partIndex] ?? []
+    if (before.length > 0) {
+      segments.push({ type: 'text', richTexts: before })
+    }
+    partIndex += 1
+    segments.push({ type: 'note', block: inlineNotes[i] })
+  }
+
+  const rest: RichText[] = []
+  for (let i = partIndex; i < parts.length; i++) {
+    rest.push(...(parts[i] ?? []))
+  }
+  if (rest.length > 0) {
+    segments.push({ type: 'text', richTexts: rest })
+  }
+
+  if (segments.length === 0) {
+    segments.push({ type: 'text', richTexts: [] })
+  }
+  return segments
+}
+
+function isNoteHost(block: Block): boolean {
+  return block.Type === 'paragraph' || block.Type === 'quote'
+}
+
+function hostRichTexts(block: Block): RichText[] {
+  if (block.Type === 'paragraph') return block.Paragraph?.RichTexts ?? []
+  if (block.Type === 'quote') return block.Quote?.RichTexts ?? []
+  return []
+}
+
+/**
+ * 旁注挂载（正文段或引用块均可作宿主）：
+ * - 宿主文本中的 [*] 与随后灰色 Callout 按序配对（角标落在标记处）
+ * - 其余旁注/边注仍挂到上一宿主末尾（兼容旧写法）
  */
 export function attachNotesToParagraphs(items: Renderable[]): {
-  notesByParagraphId: Map<string, Block[]>
+  plansByParagraphId: Map<string, ParagraphNotePlan>
   consumedNoteIds: Set<string>
 } {
-  const notesByParagraphId = new Map<string, Block[]>()
+  const inlineByHostId = new Map<string, Block[]>()
+  const trailingByHostId = new Map<string, Block[]>()
+  const markerRemaining = new Map<string, number>()
   const consumedNoteIds = new Set<string>()
+
+  for (const item of items) {
+    if (isList(item) || !isNoteHost(item)) continue
+    const texts = hostRichTexts(item)
+    markerRemaining.set(item.Id, countSidenoteMarkers(texts))
+    inlineByHostId.set(item.Id, [])
+    trailingByHostId.set(item.Id, [])
+  }
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
@@ -134,21 +269,39 @@ export function attachNotesToParagraphs(items: Renderable[]): {
     for (let j = i - 1; j >= 0; j--) {
       const prev = items[j]
       if (isList(prev)) break
+      if (isEmptyParagraph(prev)) continue
       if (consumedNoteIds.has(prev.Id)) continue
-      if (prev.Type === 'paragraph') {
+      if (isNoteHost(prev)) {
         host = prev
       }
       break
     }
     if (!host) continue
 
-    const list = notesByParagraphId.get(host.Id) ?? []
-    list.push(item)
-    notesByParagraphId.set(host.Id, list)
+    const remaining = markerRemaining.get(host.Id) ?? 0
+    if (isSidenoteCallout(item) && remaining > 0) {
+      inlineByHostId.get(host.Id)!.push(item)
+      markerRemaining.set(host.Id, remaining - 1)
+    } else {
+      trailingByHostId.get(host.Id)!.push(item)
+    }
     consumedNoteIds.add(item.Id)
   }
 
-  return { notesByParagraphId, consumedNoteIds }
+  const plansByParagraphId = new Map<string, ParagraphNotePlan>()
+  for (const item of items) {
+    if (isList(item) || !isNoteHost(item)) continue
+    const texts = hostRichTexts(item)
+    const parts = splitRichTextsAtSidenoteMarker(texts)
+    const inlineNotes = inlineByHostId.get(item.Id) ?? []
+    const trailingNotes = trailingByHostId.get(item.Id) ?? []
+    plansByParagraphId.set(item.Id, {
+      segments: buildSegments(parts, inlineNotes),
+      trailingNotes,
+    })
+  }
+
+  return { plansByParagraphId, consumedNoteIds }
 }
 
 /** 按 Notion 一级标题切开，供 <section> 包裹。 */

@@ -131,6 +131,15 @@ p {
   margin-bottom: 1.4rem;
 }
 
+/* 带旁注的段：用 div 以免旁注内列表撑破 p；尺度与正文 p 一致 */
+.post-body .tufte-para {
+  margin-top: 1.4rem;
+  margin-bottom: 1.4rem;
+  font-size: 1.4rem;
+  line-height: 2rem;
+  color: var(--ink);
+}
+
 /* h1 文档标题；h2/h3 节标题（拉丁走 ET Book 斜体，中文同朱雀仿宋） */
 h1 {
   margin: 2.5rem 0 1.5rem;
@@ -184,7 +193,8 @@ time {
 }
 
 /* 正文首段首字下沉：只打在 .drop-cap 上，不碰引言 blockquote */
-.post-body p.drop-cap::first-letter {
+.post-body p.drop-cap::first-letter,
+.post-body .tufte-para.drop-cap::first-letter {
   float: left;
   font-family: var(--font-display);
   font-size: 3.15em;
@@ -193,9 +203,7 @@ time {
   color: var(--ink);
 }
 
-/* ===== 链接：墨色不变，下划线只在 hover / 键盘聚焦时出现 =====
- * 偏离 Tufte 原版（原版常驻下划线）：本站按站主偏好改为悬停显示。
- */
+/* ===== 链接：默认墨色、无线；仅正文栏句内链接常驻下划线（Tufte） ===== */
 a:link,
 a:visited {
   color: inherit;
@@ -204,9 +212,25 @@ a:visited {
   text-decoration-thickness: 0.05em;
 }
 
-a:hover,
-a:focus-visible {
+/* 正文内链接常驻下划线；节标题锚点除外 */
+.post-body a:link,
+.post-body a:visited {
   text-decoration: underline;
+}
+
+.post-body a:hover,
+.post-body a:focus-visible {
+  text-decoration: underline;
+}
+
+.post-body a.heading-anchor:link,
+.post-body a.heading-anchor:visited,
+.post-body a.heading-anchor:hover,
+.post-body a:has(> h2),
+.post-body a:has(> h3),
+.post-body h2 a,
+.post-body h3 a {
+  text-decoration: none;
 }
 
 :focus-visible {
@@ -214,22 +238,23 @@ a:focus-visible {
   outline-offset: 3px;
 }
 
-/* ===== 行内 code：墨色等宽 + 浅底，兼作轻强调（不用 Notion 默认红） ===== */
+/* ===== 行内 code：仅等宽（Tufte）；块级 pre 弱装饰，语法色由 syntax-coloring.css 负责 ===== */
 code {
   font-family: var(--font-mono);
-  font-size: 1.05rem;
-  padding: 0.05em 0.28em;
-  background: var(--soft);
-  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.42;
+  padding: 0;
+  background: transparent;
+  color: inherit;
   border-radius: 0;
 }
 
 pre {
   overflow: auto;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 0;
-  padding: 1rem 1.2rem;
-  background: var(--soft);
+  padding: 0.6rem 0;
+  background: transparent;
   white-space: pre;
 }
 
@@ -240,20 +265,38 @@ pre code {
   font-size: 0.9rem;
 }
 
+/* Notion 下划线标注：斜体轻强调，不与链接实线下划线抢语义 */
+.emph {
+  font-style: italic;
+}
+
 blockquote {
   margin: 1.5rem 0;
-  border-left: 2px solid var(--line);
-  padding: 0.35rem 0 0.35rem 1rem;
-  color: var(--muted);
+  border-left: none;
+  padding: 0;
+  color: var(--ink);
   font-style: italic;
+}
+
+/* 引用块内旁注：原版 Tufte 对 blockquote 旁注有更宽的负边距 */
+blockquote .sidenote,
+blockquote .marginnote,
+.tufte-quote .sidenote,
+.tufte-quote .marginnote {
+  margin-right: -82%;
+  min-width: 59%;
+  text-align: left;
 }
 
 hr {
   display: block;
   height: 1px;
+  width: 100%;
   border: 0;
   border-top: 1px solid var(--line);
   margin: 2rem 0;
+  padding: 0;
+  background: none;
 }
 
 table {
@@ -262,15 +305,19 @@ table {
   overflow-x: auto;
   border-collapse: collapse;
   font-size: 1.2rem;
+  font-family: var(--font-sans);
 }
 th,
 td {
-  border: 1px solid var(--line);
-  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 0.45rem 0.75rem;
   text-align: left;
+  font-weight: normal;
 }
 th {
-  background: var(--soft);
+  background: transparent;
+  font-weight: 600;
 }
 
 img,
@@ -342,10 +389,10 @@ h3.heading-minor {
   margin-top: 0.3rem;
   margin-bottom: 0;
   font-size: 1.1rem;
-  line-height: 1.4;
+  line-height: 1.3;
   vertical-align: baseline;
   position: relative;
-  color: var(--muted);
+  color: var(--ink);
 }
 
 .sidenote-number {
@@ -429,12 +476,51 @@ div.epigraph > blockquote > footer {
   height: 100%;
 }
 
-/* 品牌名与跳转链接不需要悬停下划线 */
-.brand,
-.brand:hover,
-.skip-link,
-.skip-link:hover {
-  text-decoration: none;
+/* 正文栏列表：略窄于段落 + 缩进（贴近 Tufte 50%+5%） */
+.post-body > section > ul,
+.post-body > section > ol,
+.post-body > section > dl,
+.post-body > ul,
+.post-body > ol,
+.post-body > dl {
+  width: 90%;
+  max-width: 100%;
+  padding-inline-start: 5%;
+  box-sizing: border-box;
+}
+
+/* 正文灰阶：忽略 Notion 彩虹字/底，颜色留给图与代码高亮 */
+.post-body .gray,
+.post-body .brown,
+.post-body .orange,
+.post-body .yellow,
+.post-body .green,
+.post-body .blue,
+.post-body .purple,
+.post-body .pink,
+.post-body .red,
+.post-body .gray:hover,
+.post-body .brown:hover,
+.post-body .orange:hover,
+.post-body .yellow:hover,
+.post-body .green:hover,
+.post-body .blue:hover,
+.post-body .purple:hover,
+.post-body .pink:hover,
+.post-body .red:hover {
+  color: inherit;
+}
+
+.post-body [class$='-background'] {
+  background: transparent !important;
+}
+
+/* 彩色 Callout 降噪：统一纸面提示，不吃彩虹底 */
+.post-body .callout,
+.post-body .callout[class$='-background'] {
+  background: var(--soft) !important;
+  color: var(--ink);
+  border: 1px solid var(--line);
 }
 
 /* ===== 窄屏（<=760px）：取消非对称，旁注折叠 ===== */

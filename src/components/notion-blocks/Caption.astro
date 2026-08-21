@@ -1,22 +1,25 @@
 ---
-import type { RichText } from '../../lib/interfaces.ts'
+import type { RichText as RichTextType } from '../../lib/interfaces.ts'
 import type { FigureLayout } from '../../lib/tufte.ts'
+import RichText from './RichText.astro'
 
 export interface Props {
-  richTexts: RichText[]
+  richTexts: RichTextType[]
   layout?: FigureLayout
 }
 
 const { richTexts, layout = 'column' } = Astro.props
-const text = richTexts
-  .map((rt) => rt.Text?.Content ?? rt.PlainText ?? '')
-  .join('')
+const hasText = richTexts.some(
+  (rt) => (rt.Text?.Content ?? rt.PlainText ?? '').length > 0
+)
 ---
 
 {
-  text.length > 0 && (
+  hasText && (
     <div class:list={['caption', `caption-${layout}`]}>
-      {text}
+      {richTexts.map((richText) => (
+        <RichText richText={richText} />
+      ))}
     </div>
   )
 }

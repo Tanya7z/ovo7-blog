@@ -18,7 +18,7 @@ const id = buildHeadingId(heading3)
   heading3.IsToggleable ? (
     <details class="toggle">
       <summary>
-        <a href={`#${id}`} id={id}>
+        <a class="heading-anchor" href={`#${id}`} id={id}>
           <h3 class="heading-minor">
             {heading3.RichTexts.map((richText: interfaces.RichText) => (
               <RichText richText={richText} />
@@ -33,7 +33,7 @@ const id = buildHeadingId(heading3)
       </div>
     </details>
   ) : (
-    <a href={`#${id}`} id={id}>
+    <a class="heading-anchor" href={`#${id}`} id={id}>
       <h3 class="heading-minor">
         {heading3.RichTexts.map((richText: interfaces.RichText) => (
           <RichText richText={richText} />

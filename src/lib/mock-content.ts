@@ -89,7 +89,7 @@ function image(id: string, caption: string): Block {
 }
 
 export const MOCK_DATABASE: Database = {
-  Title: '七罪的手账本',
+  Title: '七罪的手账本。',
   Description: 'La vida no tiene precio.',
   Icon: null,
   Cover: null,
@@ -382,8 +382,50 @@ const MOCK_BLOCKS: Record<string, Block[]> = {
     ),
     heading1('mock-tufte-h1', '旁注与图片'),
     paragraph(
+      'mock-tufte-sn-inline',
+      '不同应用中，明明都是「拖动分隔区域改变面板宽度」的操作，却在两类鼠标指针[*]的选择中看起来毫无规律。'
+    ),
+    {
+      Id: 'mock-tufte-sn-inline-note',
+      Type: 'callout',
+      HasChildren: true,
+      Callout: {
+        RichTexts: [richText('常见的两类指针：')],
+        Icon: null,
+        Color: 'gray',
+        Children: [
+          {
+            Id: 'mock-tufte-sn-inline-list',
+            Type: 'bulleted_list_item',
+            HasChildren: false,
+            BulletedListItem: {
+              RichTexts: [
+                richText('普通双向箭头：↔'),
+              ],
+              Color: 'default',
+            },
+          },
+          {
+            Id: 'mock-tufte-sn-inline-list-2',
+            Type: 'bulleted_list_item',
+            HasChildren: false,
+            BulletedListItem: {
+              RichTexts: [
+                richText('中间带分隔线的双向箭头：↔|'),
+              ],
+              Color: 'default',
+            },
+          },
+        ],
+      },
+    },
+    paragraph(
+      'mock-tufte-sn-inline-follow',
+      '它们表达的是相同的用户行为，但背后的交互语义其实不同。'
+    ),
+    paragraph(
       'mock-tufte-sn-host',
-      '带编号的 sidenote 会挂在上一段末尾，桌面出现在右栏，窄屏点编号才展开。'
+      '没有段内星号锚点时，带编号的 sidenote 仍会挂在上一段末尾（兼容旧写法）；桌面出现在右栏，窄屏点编号才展开。'
     ),
     callout(
       'mock-tufte-sn-1',

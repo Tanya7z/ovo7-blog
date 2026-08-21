@@ -1,6 +1,5 @@
 ---
 import * as interfaces from '../../lib/interfaces.ts'
-import { snakeToKebab } from '../../lib/style-helpers.ts'
 import { isMarginNoteCallout, isSidenoteCallout } from '../../lib/tufte.ts'
 import RichText from './RichText.astro'
 import NotionBlocks from '../NotionBlocks.astro'
@@ -51,7 +50,7 @@ const toggleId = asSidenote ? `sn-${block.Id}` : `mn-${block.Id}`
       </span>
     </>
   ) : (
-    <div class={`callout ${snakeToKebab(callout.Color)}`}>
+    <div class="callout">
       {callout.Icon && (
         <div class="icon">
           {interfaces.isEmojiIcon(callout.Icon) ? (
@@ -86,7 +85,7 @@ const toggleId = asSidenote ? `sn-${block.Id}` : `mn-${block.Id}`
   .callout {
     display: flex;
     margin: 1.2rem 0;
-    padding: 14px 14px;
+    padding: 0.85rem 1rem;
     width: 100%;
     font-size: 1.1rem;
     font-weight: 400;
@@ -94,6 +93,7 @@ const toggleId = asSidenote ? `sn-${block.Id}` : `mn-${block.Id}`
     border-radius: 0;
     border: 1px solid var(--line);
     background: var(--soft);
+    color: var(--ink);
   }
   .callout > div {
     margin: 0;

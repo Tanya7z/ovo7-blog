@@ -1,6 +1,7 @@
 ---
 import * as interfaces from '../../lib/interfaces.ts'
 import { snakeToKebab } from '../../lib/style-helpers.ts'
+import type { ParagraphNotePlan } from '../../lib/tufte.ts'
 import RichText from './RichText.astro'
 import NotionBlocks from '../NotionBlocks.astro'
 import Callout from './Callout.astro'
@@ -9,23 +10,44 @@ import '../../styles/notion-color.css'
 export interface Props {
   block: interfaces.Block
   headings: interfaces.Block[]
-  trailingNotes?: interfaces.Block[]
+  /** 旁注挂载计划：段内 [*] 与段末 trailing */
+  notePlan?: ParagraphNotePlan
   /** 正文首段：首字下沉 */
   dropCap?: boolean
 }
 
-const { block, headings, trailingNotes = [], dropCap = false } = Astro.props
+const { block, headings, notePlan, dropCap = false } = Astro.props
 const paragraph = interfaces.must(block.Paragraph, 'Paragraph')
-const className = [snakeToKebab(paragraph.Color), dropCap ? 'drop-cap' : '']
+
+const segments = notePlan?.segments ?? [
+  { type: 'text' as const, richTexts: paragraph.RichTexts },
+]
+const trailingNotes = notePlan?.trailingNotes ?? []
+const hasNotes =
+  trailingNotes.length > 0 || segments.some((s) => s.type === 'note')
+
+const className = [
+  snakeToKebab(paragraph.Color),
+  dropCap ? 'drop-cap' : '',
+  hasNotes ? 'tufte-para' : '',
+]
   .filter(Boolean)
   .join(' ')
+
+const Tag = hasNotes ? 'div' : 'p'
 ---
 
-<p class={className || undefined}>
+<Tag class={className || undefined}>
   {
-    paragraph.RichTexts.map((richText: interfaces.RichText) => (
-      <RichText richText={richText} />
-    ))
+    segments.map((segment) =>
+      segment.type === 'text' ? (
+        segment.richTexts.map((richText: interfaces.RichText) => (
+          <RichText richText={richText} />
+        ))
+      ) : (
+        <Callout block={segment.block} headings={headings} />
+      )
+    )
   }
   {
     trailingNotes.map((note) => (
@@ -37,10 +59,11 @@ const className = [snakeToKebab(paragraph.Color), dropCap ? 'drop-cap' : '']
       <NotionBlocks blocks={paragraph.Children} headings={headings} />
     )
   }
-</p>
+</Tag>
 
 <style>
-  p {
+  p,
+  .tufte-para {
     min-height: 1.8rem;
   }
 </style>

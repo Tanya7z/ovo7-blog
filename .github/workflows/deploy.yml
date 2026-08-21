@@ -64,7 +64,7 @@ jobs:
       MUSIC_DATA_SOURCE_ID: ${{ vars.MUSIC_DATA_SOURCE_ID || '' }}
       CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN || 'blog.ovo7.cc' }}
       MEDIA_ORIGIN: ${{ vars.MEDIA_ORIGIN || 'https://img.ovo7.cc' }}
-      SITE_TITLE: ${{ vars.SITE_TITLE || '七罪的手账本' }}
+      SITE_TITLE: ${{ vars.SITE_TITLE || '七罪的手账本。' }}
       SITE_DESCRIPTION: ${{ vars.SITE_DESCRIPTION || 'La vida no tiene precio.' }}
       SITE_LANGUAGE: ${{ vars.SITE_LANGUAGE || 'zh-CN' }}
       ENABLE_LIGHTBOX: ${{ vars.ENABLE_LIGHTBOX || 'true' }}

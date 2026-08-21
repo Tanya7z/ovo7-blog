@@ -26,7 +26,7 @@ export const MUSIC_DATA_SOURCE_ID =
   import.meta.env.MUSIC_DATA_SOURCE_ID || process.env.MUSIC_DATA_SOURCE_ID || ''
 
 export const SITE_TITLE =
-  import.meta.env.SITE_TITLE || process.env.SITE_TITLE || '七罪的手账本'
+  import.meta.env.SITE_TITLE || process.env.SITE_TITLE || '七罪的手账本。'
 export const SITE_DESCRIPTION =
   import.meta.env.SITE_DESCRIPTION ||
   process.env.SITE_DESCRIPTION ||

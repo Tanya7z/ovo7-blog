@@ -96,9 +96,10 @@ if (pageId) {
     color: var(--fg);
     font-weight: 500;
   }
-  a.link:hover span.text,
-  a.link:focus-visible span.text {
+  a.link span.text {
     text-decoration: underline;
+    text-underline-offset: 0.12em;
+    text-decoration-thickness: 0.05em;
   }
   span.text.not-found {
     font-weight: normal;

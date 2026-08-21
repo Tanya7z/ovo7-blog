@@ -127,7 +127,7 @@ const bookmarkURLs = blocks
 
 const bookmarkURLMap = await buildURLToHTMLMap(bookmarkURLs)
 
-const { notesByParagraphId, consumedNoteIds } = attachNotesToParagraphs(blocks)
+const { plansByParagraphId, consumedNoteIds } = attachNotesToParagraphs(blocks)
 const leadingEpigraphIds = isRoot
   ? collectLeadingEpigraphIds(blocks)
   : new Set<string>()
@@ -170,7 +170,7 @@ const sectionGroups = isRoot ? groupByHeading1(blocks) : [blocks]
             <Paragraph
               block={block}
               headings={headings}
-              trailingNotes={notesByParagraphId.get(block.Id) ?? []}
+              notePlan={plansByParagraphId.get(block.Id)}
               dropCap={block.Id === firstBodyParagraphId}
             />
           )
@@ -194,6 +194,7 @@ const sectionGroups = isRoot ? groupByHeading1(blocks) : [blocks]
               block={block}
               headings={headings}
               asEpigraph={leadingEpigraphIds.has(block.Id)}
+              notePlan={plansByParagraphId.get(block.Id)}
             />
           )
         case 'equation':
